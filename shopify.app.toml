@@ -6,7 +6,6 @@ application_url = "https://bundley.onrender.com"
 embedded = true
 
 [access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,write_products,read_discounts,write_discounts"
 
 [webhooks]
