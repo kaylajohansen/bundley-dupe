@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "1d3ee4a46c6e98de8896cf8d890a8cc0"
+client_id = "1da286ece332d632491863da919ea351"
 name = "Bundley"
 application_url = "https://bundley.onrender.com"
 embedded = true
