@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "b0cd48bd3447c9ee21cdd124d73b2c67"
+client_id = "1d3ee4a46c6e98de8896cf8d890a8cc0"
 name = "Bundley"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://bundley.onrender.com"
 embedded = true
 
 [access_scopes]
@@ -26,7 +26,7 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [ "https://bundley.onrender.com/api/auth" ]
 
 [build]
 include_config_on_deploy = true
