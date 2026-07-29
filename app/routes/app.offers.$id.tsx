@@ -476,6 +476,7 @@ export default function OfferEditor() {
       const gift: Gift = {
         productId: String(product.id),
         variantId: String(variant?.id ?? product.id),
+        handle: String(product.handle ?? ""),
         title: String(product.title ?? "Free gift"),
         price,
         quantity: 1,

@@ -29,18 +29,9 @@
   }
 
   // --- Add to cart -------------------------------------------------------
-  // The widget owns no button; instead it intercepts the theme's Add to cart
-  // and performs the add itself with the selected tier's quantity (and, later,
-  // the chosen variants), then opens/refreshes the theme's cart drawer.
-
-  function cartRoot() {
-    return (
-      (window.Shopify &&
-        window.Shopify.routes &&
-        window.Shopify.routes.root) ||
-      "/"
-    );
-  }
+  // The widget owns no button. Instead it rewrites the theme's Add to cart form
+  // to carry the selected tier's line items, then lets the theme submit and
+  // handle the cart exactly as it does for a normal add.
 
   function findProductForm() {
     // The REAL add-to-cart form is the one containing the Add button. Other
@@ -64,193 +55,116 @@
     return pf || forms[0] || null;
   }
 
-  // Cart-related section ids present on the page, for the Section Rendering API.
-  function cartSectionIds() {
-    var ids = {};
-    document
-      .querySelectorAll('[id^="shopify-section-"]')
-      .forEach(function (el) {
-        var id = el.id.slice("shopify-section-".length);
-        if (/cart|header/i.test(id)) ids[id] = true;
-      });
-    [
-      "cart-drawer",
-      "cart-icon-bubble",
-      "cart-notification",
-      "cart-live-region-text",
-      "header",
-    ].forEach(function (id) {
-      if (document.getElementById("shopify-section-" + id)) ids[id] = true;
-    });
-    return Object.keys(ids);
-  }
-
-  // The exact section ids the theme's drawer re-renders (Dawn/OS 2.0 expose
-  // getSectionsToRender()); fall back to a DOM scan for other themes.
-  function drawerSectionIds() {
-    var el = document.querySelector("cart-drawer, cart-notification");
-    if (el && typeof el.getSectionsToRender === "function") {
-      try {
-        var ids = el
-          .getSectionsToRender()
-          .map(function (s) {
-            return s && s.id;
-          })
-          .filter(Boolean);
-        if (ids.length) return ids;
-      } catch (e) {
-        /* fall through */
-      }
-    }
-    return cartSectionIds();
-  }
-
-  // Generic fallback: replace each returned section's HTML in place with the
-  // fresh markup cart/add.js returns (the theme's own drawer/bubble HTML).
-  function renderSections(sections) {
-    if (!sections) return;
-    Object.keys(sections).forEach(function (id) {
-      var el = document.getElementById("shopify-section-" + id);
-      if (el && typeof sections[id] === "string") el.innerHTML = sections[id];
-    });
-  }
-
-  // When the cart was empty before the add, themes leave an "empty" marker that
-  // hides the freshly-rendered items. Strip the common ones so they show.
-  function unmarkEmpty() {
-    var roots = document.querySelectorAll(
-      "cart-drawer, cart-notification, #CartDrawer, .cart-drawer," +
-        " .drawer--cart, [data-cart-drawer], #CartDrawer-CartItems",
+  function cartRoot() {
+    return (
+      (window.Shopify && window.Shopify.routes && window.Shopify.routes.root) ||
+      "/"
     );
-    var EMPTY = [
-      "is-empty",
-      "cart--empty",
-      "cart-empty",
-      "drawer--empty",
-      "is-cart-empty",
-    ];
-    Array.prototype.forEach.call(roots, function (root) {
-      EMPTY.forEach(function (c) {
-        root.classList.remove(c);
-        Array.prototype.forEach.call(
-          root.querySelectorAll("." + c),
-          function (n) {
-            n.classList.remove(c);
-          },
-        );
-      });
-    });
   }
 
-  // Open the theme's cart drawer via the mechanisms themes use, in order.
-  function openThemeDrawer() {
-    var drawer = document.querySelector(
-      "cart-drawer, cart-notification, #CartDrawer, .cart-drawer," +
-        " .drawer--cart, [data-cart-drawer]",
-    );
-    if (drawer && typeof drawer.open === "function") {
-      try {
-        drawer.open();
-        return true;
-      } catch (e) {
-        /* fall through */
-      }
-    }
-    var trigger = document.querySelector(
-      "#cart-icon-bubble, .js-drawer-open-cart, [data-drawer-toggle='cart']," +
-        " [aria-controls='CartDrawer'], [aria-controls='cart-drawer']," +
-        " [data-cart-drawer-toggle], .header__icon--cart, a.cart-link",
-    );
-    if (trigger) {
-      trigger.click();
-      return true;
-    }
-    if (drawer) {
-      drawer.classList.add("active", "is-open", "open", "drawer--is-open");
-      drawer.setAttribute("open", "");
-      document.documentElement.classList.add("js-drawer-open");
-      document.body.classList.add("js-drawer-open", "drawer-open", "cart-open");
-      return true;
-    }
-    return false;
-  }
-
-  function openDrawerWithEvents() {
-    ["cart:refresh", "cart:open", "cart-drawer:open", "cart:build"].forEach(
-      function (name) {
-        document.dispatchEvent(new CustomEvent(name, { bubbles: true }));
-      },
-    );
-    return openThemeDrawer();
-  }
-
-  // Refresh + open the theme's cart after an add.
-  function afterAdd(json) {
-    // 1) Prefer the theme's own renderContents() (Dawn/OS 2.0) — it swaps the
-    //    cart HTML from json.sections AND opens the drawer.
-    var native = document.querySelector("cart-drawer, cart-notification");
-    if (native && typeof native.renderContents === "function") {
-      try {
-        native.renderContents(json);
-        unmarkEmpty();
-        if (typeof native.open === "function") {
-          try {
-            native.open();
-          } catch (e) {
-            /* renderContents already opened it */
-          }
-        }
-        return;
-      } catch (e) {
-        /* fall through to the generic path */
-      }
-    }
-    // 2) Generic: inject the returned section HTML ourselves, then open.
-    renderSections(json && json.sections);
-    unmarkEmpty();
-    if (openDrawerWithEvents()) return;
-    // 3) No drawer at all — go to the cart page.
-    window.location.href = cartRoot() + "cart";
-  }
-
-  function addToCart(items) {
-    var body = { items: items };
-    var ids = drawerSectionIds();
-    if (ids.length) {
-      body.sections = ids.join(",");
-      body.sections_url = window.location.pathname;
-    }
+  // Quietly put line items in the cart without touching the UI at all. Used for
+  // every line except the last one — see bindAddGuard.
+  function preAddItems(items) {
     return fetch(cartRoot() + "cart/add.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error("add failed");
-        return res.json();
-      })
-      .then(function (json) {
-        afterAdd(json);
-      })
-      .catch(function () {
-        /* swallow: leave the page as-is */
-      });
+      body: JSON.stringify({ items: items }),
+    }).then(function (res) {
+      if (!res.ok) throw new Error("pre-add failed " + res.status);
+      return res.json();
+    });
   }
 
-  // Intercept the theme's Add to cart so we control the line items. `getItems`
-  // returns the items to add for the current selection, or null to let the
-  // theme handle the add normally. Bound once per form.
+  // Point the theme's own form fields at a single line item.
+  function setFormVariant(form, item) {
+    var idInput = form.querySelector('[name="id"]');
+    if (idInput) idInput.value = String(item.id);
+
+    var qtyInput = form.querySelector('[name="quantity"]');
+    if (qtyInput) {
+      qtyInput.value = String(item.quantity);
+      // Quantity widgets (<quantity-input>) mirror this into their own state.
+      qtyInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  // Drive the theme's Add to cart.
+  //
+  // Themes render their drawer from the add.js response, and most of them (Dawn
+  // included) can only parse a SINGLE-item response — a multi-item `items:[]`
+  // add returns a shape without the `id` field their render code expects, so it
+  // throws and the drawer never updates. That is why doing the whole add
+  // ourselves left the cart stale until a refresh.
+  //
+  // So we split the work: every line except the last is added quietly in the
+  // background, then the theme performs a completely ordinary single-item add
+  // for the final line. The theme's own code opens and renders the drawer, and
+  // because it re-reads the cart from the server that render includes the lines
+  // we pre-added. We never touch the drawer's markup, so its CSS is untouched.
   function bindAddGuard(getItems) {
     var form = findProductForm();
     if (!form || form.__qbGuard) return;
     form.__qbGuard = true;
+
+    var replaying = false;
+
     function handler(e) {
+      // Our own replayed add — step aside and let the theme handle it. This
+      // must stay true for BOTH the click and the submit it triggers, or we'd
+      // re-enter and pre-add the extra lines a second time.
+      if (replaying) return;
+
       var items = getItems();
       if (!items || !items.length) return; // nothing selected → theme handles it
+
+      // Hand the MAIN product line to the theme (it's first in the list) and
+      // pre-add the rest. Themes that show an "added to cart" notification name
+      // the item they added, so it should be the product, not a free gift.
+      //
+      // The theme always adds exactly ONE unit: its quantity field is owned by
+      // its own quantity widget, which re-syncs from its internal state as it
+      // submits and discards whatever we wrote. So any units beyond the first
+      // go through the pre-add instead. Shopify merges them into a single cart
+      // line, since it's the same variant.
+      var first = items[0];
+      var main = { id: first.id, quantity: 1 };
+      var extras = items.slice(1);
+      if (first.quantity > 1) {
+        extras.unshift({ id: first.id, quantity: first.quantity - 1 });
+      }
+
+      // Exactly one unit in total: nothing to pre-add, so let the theme submit
+      // this very event. Fully native, nothing intercepted.
+      if (!extras.length) {
+        setFormVariant(form, main);
+        return;
+      }
+
+      // Multiple lines: hold this submit, seed the extras, then replay it.
       e.preventDefault();
       e.stopImmediatePropagation();
-      addToCart(items);
+
+      preAddItems(extras)
+        .catch(function (err) {
+          if (window.console && console.error) {
+            console.error("[quantity-breaks] pre-add failed:", err);
+          }
+        })
+        .then(function () {
+          setFormVariant(form, main);
+          replaying = true;
+          try {
+            submitViaTheme(form);
+          } finally {
+            // The theme's click/submit handlers run synchronously above, so the
+            // flag has done its job by the next tick.
+            setTimeout(function () {
+              replaying = false;
+            }, 0);
+          }
+        });
     }
+
     form.addEventListener("submit", handler, true);
     Array.prototype.forEach.call(
       form.querySelectorAll('[type="submit"], [name="add"]'),
@@ -258,6 +172,23 @@
         btn.addEventListener("click", handler, true);
       },
     );
+  }
+
+  // Re-trigger the theme's add-to-cart the same way a shopper would, so its own
+  // handler runs (and with it, its drawer open + render).
+  function submitViaTheme(form) {
+    var btn = form.querySelector('[name="add"], [type="submit"]');
+    if (btn) {
+      btn.click();
+      return;
+    }
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    } else {
+      form.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    }
   }
 
   function parseVariants(widget) {
@@ -426,6 +357,22 @@
     // Reveal the widget. It renders hidden by default so that, when the app
     // embed is disabled (and therefore this script never loads), nothing shows.
     widget.style.display = "";
+
+    // Signal currency converter apps to re-scan our newly visible price elements.
+    // Different apps listen to different events or expose different APIs.
+    setTimeout(function () {
+      // Event-based converters (BEST Currency Converter, Auto Currency Switcher, etc.)
+      ['currency:updated', 'theme:currency:change', 'shopify:currency:change'].forEach(function (name) {
+        document.dispatchEvent(new CustomEvent(name, { bubbles: true }));
+      });
+      // mlveda / old-style converters expose a global convertAll function
+      try {
+        if (window.Currency && typeof window.Currency.convertAll === 'function') {
+          var from = (window.Shopify && window.Shopify.currency && window.Shopify.currency.active) || 'USD';
+          window.Currency.convertAll(window.shopCurrency || from, from);
+        }
+      } catch (e) { /* ignore */ }
+    }, 0);
 
     var tiers = Array.prototype.slice.call(
       widget.querySelectorAll("[data-qb-tier]"),

@@ -1,19 +1,19 @@
 {%- assign config = product.metafields.quantity_breaks.config.value -%}
 {%- if config and config.tiers and config.tiers.size > 0 -%}
-  {%- assign base = config.basePrice -%}
   {%- assign current_variant = product.selected_or_first_available_variant -%}
   {%- assign variant_id = current_variant.id -%}
   {%- comment -%}
-    Per-unit price to strike through: the product's compare-at price when set
-    (so the "original" price shows even on tiers with no volume discount),
-    otherwise the offer's base price. compare_at_price is in cents.
+    Use the live variant price (cents) so the widget always matches the
+    currency Shopify is currently serving — not the hardcoded metafield value.
   {%- endcomment -%}
-  {%- assign compare_base = base -%}
-  {%- if current_variant.compare_at_price and current_variant.compare_at_price > 0 -%}
-    {%- assign cap_dollars = current_variant.compare_at_price | divided_by: 100.0 -%}
-    {%- if cap_dollars > compare_base -%}
-      {%- assign compare_base = cap_dollars -%}
-    {%- endif -%}
+  {%- assign base_cents = current_variant.price -%}
+  {%- comment -%}
+    Compare-at base: use compare_at_price when it's higher than the sale price,
+    otherwise fall back to the current price. Both are already in cents.
+  {%- endcomment -%}
+  {%- assign compare_base_cents = base_cents -%}
+  {%- if current_variant.compare_at_price and current_variant.compare_at_price > base_cents -%}
+    {%- assign compare_base_cents = current_variant.compare_at_price -%}
   {%- endif -%}
   {%- assign theme = config.theme -%}
   {%- assign is_bxgy = false -%}
@@ -128,17 +128,19 @@
         {%- assign get_qty = tier.getQuantity | default: 0 -%}
 
         {%- comment -%}
-          Discounted unit price. For BXGY this is the price of each "get" (Y)
-          unit; for quantity breaks it's every unit's price.
+          Compute discounted unit price in cents. discountValue for PERCENT is
+          0-100; for FIXED_PER_UNIT it is a dollar amount stored in the metafield,
+          so multiply by 100 to convert to cents before subtracting.
         {%- endcomment -%}
-        {%- assign unit = base -%}
+        {%- assign unit_cents = base_cents -%}
         {%- if tier.discountType == 'PERCENT' -%}
           {%- assign factor = 100 | minus: tier.discountValue -%}
-          {%- assign unit = base | times: factor | divided_by: 100.0 -%}
+          {%- assign unit_cents = base_cents | times: factor | divided_by: 100 -%}
         {%- elsif tier.discountType == 'FIXED_PER_UNIT' -%}
-          {%- assign unit = base | minus: tier.discountValue -%}
+          {%- assign off_cents = tier.discountValue | times: 100 | round -%}
+          {%- assign unit_cents = base_cents | minus: off_cents -%}
         {%- endif -%}
-        {%- if unit < 0 -%}{%- assign unit = 0 -%}{%- endif -%}
+        {%- if unit_cents < 0 -%}{%- assign unit_cents = 0 -%}{%- endif -%}
 
         {%- assign is_bundle = false -%}
         {%- if tier.bundleItems and tier.bundleItems.size > 0 -%}
@@ -147,45 +149,43 @@
 
         {%- if is_bundle -%}
           {%- comment -%}
-            "Complete the bundle": total/compare are the anchor product plus
-            every bundle item's own live price (not basePrice × quantity),
-            discounted as a whole — matches the admin's bundle pricing math.
+            "Complete the bundle": compare is anchor price + each bundle item's
+            live price, all in cents. Total is compare with the discount applied.
           {%- endcomment -%}
           {%- assign add_qty = qty -%}
           {%- assign bundle_units = qty -%}
-          {%- assign compare = base | times: qty -%}
+          {%- assign compare_cents = base_cents | times: qty -%}
           {%- for item in tier.bundleItems -%}
             {%- assign item_product = all_products[item.handle] -%}
             {%- if item_product -%}
               {%- assign item_qty = item.quantity | default: 1 -%}
-              {%- assign item_price = item_product.selected_or_first_available_variant.price | divided_by: 100.0 -%}
-              {%- assign item_total = item_price | times: item_qty -%}
-              {%- assign compare = compare | plus: item_total -%}
+              {%- assign item_price_cents = item_product.selected_or_first_available_variant.price -%}
+              {%- assign item_total_cents = item_price_cents | times: item_qty -%}
+              {%- assign compare_cents = compare_cents | plus: item_total_cents -%}
               {%- assign bundle_units = bundle_units | plus: item_qty -%}
             {%- endif -%}
           {%- endfor -%}
-          {%- assign total = compare -%}
+          {%- assign total_cents = compare_cents -%}
           {%- if tier.discountType == 'PERCENT' -%}
             {%- assign factor = 100 | minus: tier.discountValue -%}
-            {%- assign total = compare | times: factor | divided_by: 100.0 -%}
+            {%- assign total_cents = compare_cents | times: factor | divided_by: 100 -%}
           {%- elsif tier.discountType == 'FIXED_PER_UNIT' -%}
-            {%- assign flat_off = tier.discountValue | times: bundle_units -%}
-            {%- assign total = compare | minus: flat_off -%}
+            {%- assign off_cents = tier.discountValue | times: 100 | round -%}
+            {%- assign flat_off_cents = off_cents | times: bundle_units -%}
+            {%- assign total_cents = compare_cents | minus: flat_off_cents -%}
           {%- endif -%}
-          {%- if total < 0 -%}{%- assign total = 0 -%}{%- endif -%}
+          {%- if total_cents < 0 -%}{%- assign total_cents = 0 -%}{%- endif -%}
         {%- elsif is_bxgy -%}
           {%- assign add_qty = qty | plus: get_qty -%}
-          {%- assign paid_x = base | times: qty -%}
-          {%- assign paid_y = unit | times: get_qty -%}
-          {%- assign total = paid_x | plus: paid_y -%}
-          {%- assign compare = compare_base | times: add_qty -%}
+          {%- assign bxgy_x_cents = base_cents | times: qty -%}
+          {%- assign bxgy_y_cents = unit_cents | times: get_qty -%}
+          {%- assign total_cents = bxgy_x_cents | plus: bxgy_y_cents -%}
+          {%- assign compare_cents = compare_base_cents | times: add_qty -%}
         {%- else -%}
           {%- assign add_qty = qty -%}
-          {%- assign total = unit | times: qty -%}
-          {%- assign compare = compare_base | times: qty -%}
+          {%- assign total_cents = unit_cents | times: qty -%}
+          {%- assign compare_cents = compare_base_cents | times: qty -%}
         {%- endif -%}
-        {%- assign total_cents = total | times: 100 | round -%}
-        {%- assign compare_cents = compare | times: 100 | round -%}
         {%- assign saved_cents = compare_cents | minus: total_cents -%}
         {%- assign save_pct = 0 -%}
         {%- if compare_cents > 0 and saved_cents > 0 -%}
@@ -253,15 +253,15 @@
             </span>
           </span>
           <span class="qb-tier__price">
-            <span class="qb-tier__total">{{ total_cents | money }}</span>
+            <span class="qb-tier__total"><span class="money" data-price="{{ total_cents }}">{{ total_cents | money }}</span></span>
             {%- if theme.showPricePerItem -%}
-              <span class="qb-tier__peritem" data-qb-peritem>{{ per_unit_cents | money }}/ea</span>
+              <span class="qb-tier__peritem" data-qb-peritem><span class="money" data-price="{{ per_unit_cents }}">{{ per_unit_cents | money }}</span>/ea</span>
             {%- endif -%}
             <span
               class="qb-tier__compare"
               {% if saved_cents <= 0 or show_compare == false %}hidden{% endif %}
             >
-              {%- if saved_cents > 0 and show_compare -%}{{ compare_cents | money }}{%- endif -%}
+              {%- if saved_cents > 0 and show_compare -%}<span class="money" data-price="{{ compare_cents }}">{{ compare_cents | money }}</span>{%- endif -%}
             </span>
           </span>
           </span>
@@ -288,7 +288,7 @@
                     <span class="qb-bundle__title">
                       {{ item_product.title }}{% if item_qty > 1 %} × {{ item_qty }}{% endif %}
                     </span>
-                    <span class="qb-bundle__price">{{ item_variant.price | money }}</span>
+                    <span class="qb-bundle__price"><span class="money" data-price="{{ item_variant.price }}">{{ item_variant.price | money }}</span></span>
                   </span>
                 </div>
               {%- endif -%}
@@ -314,11 +314,25 @@
                   >
                 {%- endif -%}
                 <span class="qb-gift__label">+ FREE {% if gift_qty > 1 %}{{ gift_qty }}× {% endif %}{{ gift.title }}</span>
-                {%- if gift.price > 0 -%}
-                  {%- assign gift_cents = gift.price | times: gift_qty | times: 100 | round -%}
-                  <span class="qb-gift__price">{{ gift_cents | money }}</span>
+                {%- comment -%}
+                  Use live variant price from all_products when a handle is stored;
+                  fall back to the metafield's stored price for older offers.
+                {%- endcomment -%}
+                {%- assign gift_unit_cents = 0 -%}
+                {%- if gift.handle != blank -%}
+                  {%- assign gift_product = all_products[gift.handle] -%}
+                  {%- if gift_product -%}
+                    {%- assign gift_unit_cents = gift_product.selected_or_first_available_variant.price -%}
+                  {%- endif -%}
                 {%- endif -%}
-                <span class="qb-gift__free">{{ 0 | money }}</span>
+                {%- if gift_unit_cents == 0 and gift.price > 0 -%}
+                  {%- assign gift_unit_cents = gift.price | times: 100 | round -%}
+                {%- endif -%}
+                {%- if gift_unit_cents > 0 -%}
+                  {%- assign gift_cents = gift_unit_cents | times: gift_qty -%}
+                  <span class="qb-gift__price"><span class="money" data-price="{{ gift_cents }}">{{ gift_cents | money }}</span></span>
+                {%- endif -%}
+                <span class="qb-gift__free"><span class="money" data-price="0">{{ 0 | money }}</span></span>
               </div>
             {%- endfor -%}
           </div>

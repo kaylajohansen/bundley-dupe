@@ -384,8 +384,9 @@ export function parseTheme(raw?: string | null): WidgetTheme {
 export type Gift = {
   productId: string; // Shopify product GID (for the admin picker)
   variantId: string; // Shopify variant GID — what's added to the cart / discounted
+  handle: string; // product handle — used in Liquid to look up live price via all_products
   title: string; // product/variant title shown as "+ FREE <title>"
-  price: number; // regular price, shown struck-through
+  price: number; // regular price, shown struck-through (fallback when handle lookup fails)
   quantity: number; // how many of this gift are given free (>= 1)
   // When true, `quantity` is per purchased unit — buy N of the product and get
   // N × quantity free (scales without a cap). When false it's a flat count.
@@ -723,6 +724,7 @@ export function sanitizeGifts(gifts: unknown): Gift[] {
     .map((g: any) => ({
       productId: String(g.productId ?? ""),
       variantId: String(g.variantId ?? ""),
+      handle: String(g.handle ?? ""),
       title: String(g.title ?? "Free gift"),
       price: typeof g.price === "number" && g.price >= 0 ? g.price : 0,
       quantity:

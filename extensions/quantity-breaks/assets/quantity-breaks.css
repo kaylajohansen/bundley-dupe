@@ -65,10 +65,8 @@
   text-align: left;
 }
 
-.qb-tier--highlight {
-  border-color: var(--qb-accent, #3b5bfd);
-}
-
+/* The accent border marks the SELECTED tier only. A highlighted tier keeps its
+   badge but stays neutral until chosen, so selection reads unambiguously. */
 .qb-tier--selected {
   border-color: var(--qb-accent, #3b5bfd);
   background: var(--qb-selected-bg, #f5f7ff);
@@ -368,8 +366,7 @@
 }
 
 /* Square the bar's bottom corners so the bundle/gift panel joins seamlessly,
-   and match each panel's border to the bar's state (accent when
-   selected/highlight). */
+   and match each panel's border to the bar's state (accent when selected). */
 .qb-tier-wrap:has(.qb-bundle) .qb-tier,
 .qb-tier-wrap:has(.qb-gifts) .qb-tier {
   border-bottom-left-radius: 0;
@@ -377,9 +374,7 @@
 }
 
 .qb-tier-wrap:has(.qb-tier--selected) .qb-bundle,
-.qb-tier-wrap:has(.qb-tier--highlight) .qb-bundle,
-.qb-tier-wrap:has(.qb-tier--selected) .qb-gifts,
-.qb-tier-wrap:has(.qb-tier--highlight) .qb-gifts {
+.qb-tier-wrap:has(.qb-tier--selected) .qb-gifts {
   border-color: var(--qb-accent, #3b5bfd);
 }
 
