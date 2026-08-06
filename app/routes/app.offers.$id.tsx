@@ -296,6 +296,7 @@ function defaultBundleTiers(): TierInput[] {
 export default function OfferEditor() {
   const {
     offer,
+    shop,
     createType,
     createAccent,
     productOptions: loadedOptions,
@@ -1641,6 +1642,26 @@ export default function OfferEditor() {
                   theme={theme}
                   productOptions={productOptions}
                 />
+              </BlockStack>
+            </Card>
+
+            <Card>
+              <BlockStack gap="300">
+                <Text as="h2" variant="headingMd">Activate embed</Text>
+                <Divider />
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  The widget appears on your storefront only when the Bundley
+                  app embed is enabled in your theme. Click below to open the
+                  Theme Editor — then toggle <strong>Bundley</strong> on under
+                  App embeds.
+                </Text>
+                <Button
+                  url={`https://${shop}/admin/themes/current/editor?context=apps`}
+                  target="_blank"
+                  fullWidth
+                >
+                  Open Theme Editor → App embeds
+                </Button>
               </BlockStack>
             </Card>
 

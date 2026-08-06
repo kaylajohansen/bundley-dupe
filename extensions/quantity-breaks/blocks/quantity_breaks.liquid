@@ -1,4 +1,13 @@
 {%- assign config = product.metafields.quantity_breaks.config.value -%}
+{%- if config == blank or config.tiers == blank or config.tiers.size == 0 -%}
+  {%- if request.design_mode -%}
+    <div style="border:2px dashed #ccc;border-radius:10px;padding:20px 16px;text-align:center;font-family:sans-serif;color:#888;margin:16px 0;">
+      <strong style="display:block;color:#555;margin-bottom:6px;">Bundley – Quantity Breaks</strong>
+      No active offer is linked to this product yet.<br>
+      Open the <strong>Bundley app</strong>, create an offer for this product, and set it to <strong>Active</strong>. The widget will appear here automatically.
+    </div>
+  {%- endif -%}
+{%- endif -%}
 {%- if config and config.tiers and config.tiers.size > 0 -%}
   {%- assign current_variant = product.selected_or_first_available_variant -%}
   {%- assign variant_id = current_variant.id -%}
@@ -30,28 +39,27 @@
   {%- assign swatch_size = theme.swatchSize | default: 36 -%}
 
   {%- comment -%}
-    Resolve the tier selected on load: explicit default tier (matched by
-    quantity) first, then the highlighted tier, then the first tier.
+    Resolve the tier selected on load by INDEX (not quantity, since multiple
+    tiers can share the same quantity value). Priority: explicit default tier
+    (matched by quantity) → highlighted tier → first tier.
   {%- endcomment -%}
-  {%- assign selected_qty = blank -%}
+  {%- assign selected_index = nil -%}
   {%- if theme.defaultTierQuantity != blank -%}
     {%- for t in config.tiers -%}
-      {%- if t.quantity == theme.defaultTierQuantity -%}
-        {%- assign selected_qty = t.quantity -%}
-        {%- break -%}
+      {%- if t.quantity == theme.defaultTierQuantity and selected_index == nil -%}
+        {%- assign selected_index = forloop.index0 -%}
       {%- endif -%}
     {%- endfor -%}
   {%- endif -%}
-  {%- if selected_qty == blank -%}
+  {%- if selected_index == nil -%}
     {%- for t in config.tiers -%}
-      {%- if t.highlight -%}
-        {%- assign selected_qty = t.quantity -%}
-        {%- break -%}
+      {%- if t.highlight and selected_index == nil -%}
+        {%- assign selected_index = forloop.index0 -%}
       {%- endif -%}
     {%- endfor -%}
   {%- endif -%}
-  {%- if selected_qty == blank -%}
-    {%- assign selected_qty = config.tiers.first.quantity -%}
+  {%- if selected_index == nil -%}
+    {%- assign selected_index = 0 -%}
   {%- endif -%}
 
   <div
@@ -198,7 +206,7 @@
         {%- if theme.showCompareAt == false -%}{%- assign show_compare = false -%}{%- endif -%}
 
         {%- assign is_selected = false -%}
-        {%- if qty == selected_qty -%}{%- assign is_selected = true -%}{%- endif -%}
+        {%- if forloop.index0 == selected_index -%}{%- assign is_selected = true -%}{%- endif -%}
 
         <div class="qb-tier-wrap{% if is_selected %} qb-tier-wrap--selected{% endif %}">
         <label
@@ -267,32 +275,152 @@
           </span>
         </label>
         {%- if tier.bundleItems and tier.bundleItems.size > 0 -%}
-          <div class="qb-bundle">
-            {%- for item in tier.bundleItems -%}
-              {%- assign item_product = all_products[item.handle] -%}
-              {%- if item_product -%}
-                {%- assign item_variant = item_product.selected_or_first_available_variant -%}
-                {%- assign item_qty = item.quantity | default: 1 -%}
-                <div class="qb-bundle__item">
-                  {%- if item_product.featured_media -%}
-                    <img
-                      class="qb-bundle__img"
-                      src="{{ item_product.featured_media | image_url: width: 80 }}"
-                      alt=""
-                      width="40"
-                      height="40"
-                      loading="lazy"
-                    >
+          {%- comment -%}
+            Bundle grid: main product card (left) + "+" separator + one card per
+            bundle item (right). Variant pickers live inside the main card so the
+            layout is self-contained — no separate qb-tier__variants panel needed.
+          {%- endcomment -%}
+          {%- assign main_discounted_cents = unit_cents -%}
+          <div class="qb-bundle" {% unless is_selected %}hidden{% endunless %} data-qb-tier-variants>
+            <div class="qb-bundle__grid">
+
+              {{- '' -}}<!-- Main product card -->
+              <div class="qb-bundle__card">
+                {%- if product.featured_media -%}
+                  <img
+                    class="qb-bundle__card-img"
+                    src="{{ product.featured_media | image_url: width: 160 }}"
+                    alt=""
+                    width="80"
+                    height="80"
+                    loading="lazy"
+                  >
+                {%- endif -%}
+                <span class="qb-bundle__card-title">{{ product.title }}</span>
+                <span class="qb-bundle__price">
+                  {%- if main_discounted_cents < base_cents -%}
+                    <span class="qb-bundle__compare"><span class="money" data-price="{{ base_cents }}">{{ base_cents | money }}</span></span>
                   {%- endif -%}
-                  <span class="qb-bundle__text">
-                    <span class="qb-bundle__title">
-                      {{ item_product.title }}{% if item_qty > 1 %} × {{ item_qty }}{% endif %}
+                  <span class="money" data-price="{{ main_discounted_cents }}">{{ main_discounted_cents | money }}</span>
+                </span>
+                {%- if per_item_variants -%}
+                  <div class="qb-bundle__pickers">
+                    {%- for option in product.options_with_values -%}
+                      {%- assign opt_i = forloop.index0 -%}
+                      {%- assign sel_value = current_variant.options[opt_i] -%}
+                      <div class="qb-voption" data-qb-option-position="{{ option.position }}">
+                        <span class="qb-voption__label">{{ option.name }}</span>
+                        {%- for u in (1..qty) -%}
+                          {%- assign unit_n = forloop.index -%}
+                          <div class="qb-vrow">
+                            {%- if qty > 1 -%}<span class="qb-vrow__num">#{{ unit_n }}</span>{%- endif -%}
+                            {%- if picker_type == 'color' or picker_type == 'button' -%}
+                              <div
+                                class="qb-swatch-group"
+                                data-qb-swatch-group
+                                data-qb-option-position="{{ option.position }}"
+                                data-qb-unit="{{ unit_n }}"
+                                role="radiogroup"
+                                aria-label="{{ option.name | escape }} for item {{ unit_n }}"
+                              >
+                                {%- for value in option.values -%}
+                                  {%- assign value_available = false -%}
+                                  {%- for v in product.variants -%}
+                                    {%- if v.available and v.options[opt_i] == value -%}
+                                      {%- assign value_available = true -%}
+                                      {%- break -%}
+                                    {%- endif -%}
+                                  {%- endfor -%}
+                                  {%- unless theme.hideUnavailableVariants and value_available == false -%}
+                                    {%- assign is_sel = false -%}
+                                    {%- if value == sel_value -%}{%- assign is_sel = true -%}{%- endif -%}
+                                    {%- assign swatch_bg = theme.swatchColors[value] | default: value | downcase | remove: ' ' -%}
+                                    <button
+                                      type="button"
+                                      class="qb-swatch qb-swatch--{{ picker_type }}{% if is_sel %} qb-swatch--selected{% endif %}{% unless value_available %} qb-swatch--soldout{% endunless %}"
+                                      data-qb-swatch
+                                      data-qb-value="{{ value | escape }}"
+                                      {% if picker_type == 'color' %}style="background: {{ swatch_bg | escape }};"{% endif %}
+                                      aria-label="{{ option.name | escape }}: {{ value | escape }}"
+                                      aria-pressed="{% if is_sel %}true{% else %}false{% endif %}"
+                                      title="{{ value | escape }}"
+                                    >{% if picker_type == 'button' %}{{ value }}{% endif %}</button>
+                                  {%- endunless -%}
+                                {%- endfor -%}
+                              </div>
+                            {%- else -%}
+                              <select
+                                class="qb-vselect"
+                                data-qb-vselect
+                                data-qb-option-position="{{ option.position }}"
+                                data-qb-unit="{{ unit_n }}"
+                                aria-label="{{ option.name | escape }} for item {{ unit_n }}"
+                              >
+                                {%- for value in option.values -%}
+                                  {%- assign value_available = false -%}
+                                  {%- for v in product.variants -%}
+                                    {%- if v.available and v.options[opt_i] == value -%}
+                                      {%- assign value_available = true -%}
+                                      {%- break -%}
+                                    {%- endif -%}
+                                  {%- endfor -%}
+                                  {%- unless theme.hideUnavailableVariants and value_available == false -%}
+                                    <option
+                                      value="{{ value | escape }}"
+                                      {% if value == sel_value %}selected{% endif %}
+                                      {% unless value_available %}disabled{% endunless %}
+                                    >{{ value }}{% unless value_available %} (sold out){% endunless %}</option>
+                                  {%- endunless -%}
+                                {%- endfor -%}
+                              </select>
+                            {%- endif -%}
+                          </div>
+                        {%- endfor -%}
+                      </div>
+                    {%- endfor -%}
+                  </div>
+                {%- endif -%}
+              </div>
+
+              {{- '' -}}<!-- Bundle item cards -->
+              {%- for item in tier.bundleItems -%}
+                {%- assign item_product = all_products[item.handle] -%}
+                {%- if item_product -%}
+                  {%- assign item_variant = item_product.selected_or_first_available_variant -%}
+                  {%- assign item_qty = item.quantity | default: 1 -%}
+                  {%- assign item_discounted_cents = item_variant.price -%}
+                  {%- if tier.discountType == 'PERCENT' -%}
+                    {%- assign item_factor = 100 | minus: tier.discountValue -%}
+                    {%- assign item_discounted_cents = item_variant.price | times: item_factor | divided_by: 100 -%}
+                  {%- elsif tier.discountType == 'FIXED_PER_UNIT' -%}
+                    {%- assign item_off_cents = tier.discountValue | times: 100 | round -%}
+                    {%- assign item_discounted_cents = item_variant.price | minus: item_off_cents -%}
+                    {%- if item_discounted_cents < 0 -%}{%- assign item_discounted_cents = 0 -%}{%- endif -%}
+                  {%- endif -%}
+                  <span class="qb-bundle__plus">+</span>
+                  <div class="qb-bundle__card">
+                    {%- if item_product.featured_media -%}
+                      <img
+                        class="qb-bundle__card-img"
+                        src="{{ item_product.featured_media | image_url: width: 160 }}"
+                        alt=""
+                        width="80"
+                        height="80"
+                        loading="lazy"
+                      >
+                    {%- endif -%}
+                    <span class="qb-bundle__card-title">{{ item_product.title }}{% if item_qty > 1 %} × {{ item_qty }}{% endif %}</span>
+                    <span class="qb-bundle__price">
+                      {%- if item_discounted_cents < item_variant.price -%}
+                        <span class="qb-bundle__compare"><span class="money" data-price="{{ item_variant.price }}">{{ item_variant.price | money }}</span></span>
+                      {%- endif -%}
+                      <span class="money" data-price="{{ item_discounted_cents }}">{{ item_discounted_cents | money }}</span>
                     </span>
-                    <span class="qb-bundle__price"><span class="money" data-price="{{ item_variant.price }}">{{ item_variant.price | money }}</span></span>
-                  </span>
-                </div>
-              {%- endif -%}
-            {%- endfor -%}
+                  </div>
+                {%- endif -%}
+              {%- endfor -%}
+
+            </div>
           </div>
         {%- endif -%}
         {%- if tier.gifts and tier.gifts.size > 0 -%}
@@ -337,10 +465,11 @@
             {%- endfor -%}
           </div>
         {%- endif -%}
-        {%- if per_item_variants -%}
+        {%- if per_item_variants and tier.bundleItems == blank or per_item_variants and tier.bundleItems.size == 0 -%}
           {%- comment -%}
-            Per-item variant pickers for this tier. Grouped by product option
-            (e.g. "Color"), with one dropdown per unit the tier represents
+            Per-item variant pickers for non-bundle tiers. Bundle tiers render
+            their pickers inline inside the bundle card above.
+            Grouped by product option (e.g. "Color"), with one dropdown per unit the tier represents
             (#1, #2, … up to add_qty, incl. BXGY "get" units). Hidden until the
             tier is selected (JS toggles the `hidden` attr).
           {%- endcomment -%}
@@ -472,6 +601,6 @@
       "type": "paragraph",
       "content": "Shows the quantity-break tiers configured for this product in the Quantity Breaks app. Set the offer to Active in the app for it to appear here."
     }
-  ]
+  ],
 }
 {% endschema %}
