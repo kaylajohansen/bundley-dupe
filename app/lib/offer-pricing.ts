@@ -679,6 +679,12 @@ export function validateOffer(input: OfferInput): string[] {
 export type OfferMetafield = {
   title: string;
   type: OfferType;
+  // The offer's own product — written to this product AND to every "complete
+  // the bundle" ingredient product (so the discount function can read their
+  // shared config), but the storefront widget only renders on this one.
+  // Without it, a bundle ingredient's own product page would show the
+  // anchor's full quantity-break widget too.
+  productId: string | null;
   headerText: string | null;
   basePrice: number;
   theme: WidgetTheme;
@@ -741,6 +747,7 @@ export function toMetafield(input: OfferInput): OfferMetafield {
   return {
     title: input.title,
     type: normalizeOfferType(input.type),
+    productId: input.productId ?? null,
     headerText: input.headerText ?? null,
     basePrice: input.basePrice,
     theme: normalizeTheme(input.theme),

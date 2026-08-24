@@ -1,5 +1,28 @@
 {%- assign config = product.metafields.quantity_breaks.config.value -%}
-{%- if config == blank or config.tiers == blank or config.tiers.size == 0 -%}
+{%- comment -%}
+  The same metafield is written both to this offer's own product AND to every
+  "complete the bundle" ingredient product (so the discount function can read
+  their shared config on the storefront/cart side). Without this check, a
+  bundle ingredient's own product page would show the anchor product's full
+  widget too. Only render when this product IS the offer's anchor.
+{%- endcomment -%}
+{%- comment -%}
+  Metafields written before this fix don't carry productId yet (they're
+  rewritten the next time each offer is saved). Until then, default to
+  showing the widget rather than hiding it on a legitimate anchor product —
+  the leak this guards against only affects products used as bundle
+  ingredients, and closes for each offer as soon as it's next saved.
+{%- endcomment -%}
+{%- assign is_anchor_product = true -%}
+{%- if config and config.productId -%}
+  {%- assign anchor_numeric_id = config.productId | split: '/' | last -%}
+  {%- assign current_numeric_id = product.id | append: '' -%}
+  {%- assign is_anchor_product = false -%}
+  {%- if anchor_numeric_id == current_numeric_id -%}
+    {%- assign is_anchor_product = true -%}
+  {%- endif -%}
+{%- endif -%}
+{%- if config == blank or config.tiers == blank or config.tiers.size == 0 or is_anchor_product == false -%}
   {%- if request.design_mode -%}
     <div style="border:2px dashed #ccc;border-radius:10px;padding:20px 16px;text-align:center;font-family:sans-serif;color:#888;margin:16px 0;">
       <strong style="display:block;color:#555;margin-bottom:6px;">Bundley – Quantity Breaks</strong>
@@ -8,7 +31,7 @@
     </div>
   {%- endif -%}
 {%- endif -%}
-{%- if config and config.tiers and config.tiers.size > 0 -%}
+{%- if config and config.tiers and config.tiers.size > 0 and is_anchor_product -%}
   {%- assign current_variant = product.selected_or_first_available_variant -%}
   {%- assign variant_id = current_variant.id -%}
   {%- comment -%}
