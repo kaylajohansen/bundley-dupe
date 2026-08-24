@@ -420,8 +420,17 @@
                     {%- assign item_discounted_cents = item_variant.price | minus: item_off_cents -%}
                     {%- if item_discounted_cents < 0 -%}{%- assign item_discounted_cents = 0 -%}{%- endif -%}
                   {%- endif -%}
+                  {%- assign item_has_variants = false -%}
+                  {%- if item_product.variants.size > 1 -%}
+                    {%- assign item_has_variants = true -%}
+                  {%- endif -%}
                   <span class="qb-bundle__plus">+</span>
-                  <div class="qb-bundle__card">
+                  <div
+                    class="qb-bundle__card"
+                    data-qb-bundle-item
+                    data-qb-bi-default-variant="{{ item_variant.id }}"
+                    data-qb-bi-qty="{{ item_qty }}"
+                  >
                     {%- if item_product.featured_media -%}
                       <img
                         class="qb-bundle__card-img"
@@ -439,6 +448,86 @@
                       {%- endif -%}
                       <span class="money" data-price="{{ item_discounted_cents }}">{{ item_discounted_cents | money }}</span>
                     </span>
+                    {%- if item_has_variants -%}
+                      {%- comment -%}
+                        Bundle item's own variant picker — one selection per
+                        option (no per-unit concept, unlike the main product's
+                        pickers), so the shopper can e.g. pick which color of
+                        the bundled item they want.
+                      {%- endcomment -%}
+                      <script type="application/json" data-qb-bi-variants>
+                        [{%- for v in item_product.variants -%}{"id":{{ v.id }},"options":{{ v.options | json }},"available":{{ v.available }}}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%}]
+                      </script>
+                      <div class="qb-bundle__pickers">
+                        {%- for option in item_product.options_with_values -%}
+                          {%- assign opt_i = forloop.index0 -%}
+                          {%- assign bi_sel_value = item_variant.options[opt_i] -%}
+                          <div class="qb-voption" data-qb-option-position="{{ option.position }}">
+                            <span class="qb-voption__label">{{ option.name }}</span>
+                            <div class="qb-vrow">
+                              {%- if picker_type == 'color' or picker_type == 'button' -%}
+                                <div
+                                  class="qb-swatch-group"
+                                  data-qb-swatch-group
+                                  data-qb-option-position="{{ option.position }}"
+                                  role="radiogroup"
+                                  aria-label="{{ option.name | escape }}"
+                                >
+                                  {%- for value in option.values -%}
+                                    {%- assign value_available = false -%}
+                                    {%- for v in item_product.variants -%}
+                                      {%- if v.available and v.options[opt_i] == value -%}
+                                        {%- assign value_available = true -%}
+                                        {%- break -%}
+                                      {%- endif -%}
+                                    {%- endfor -%}
+                                    {%- unless theme.hideUnavailableVariants and value_available == false -%}
+                                      {%- assign bi_is_sel = false -%}
+                                      {%- if value == bi_sel_value -%}{%- assign bi_is_sel = true -%}{%- endif -%}
+                                      {%- assign swatch_bg = theme.swatchColors[value] | default: value | downcase | remove: ' ' -%}
+                                      <button
+                                        type="button"
+                                        class="qb-swatch qb-swatch--{{ picker_type }}{% if bi_is_sel %} qb-swatch--selected{% endif %}{% unless value_available %} qb-swatch--soldout{% endunless %}"
+                                        data-qb-swatch
+                                        data-qb-value="{{ value | escape }}"
+                                        {% if picker_type == 'color' %}style="background: {{ swatch_bg | escape }};"{% endif %}
+                                        aria-label="{{ option.name | escape }}: {{ value | escape }}"
+                                        aria-pressed="{% if bi_is_sel %}true{% else %}false{% endif %}"
+                                        title="{{ value | escape }}"
+                                      >{% if picker_type == 'button' %}{{ value }}{% endif %}</button>
+                                    {%- endunless -%}
+                                  {%- endfor -%}
+                                </div>
+                              {%- else -%}
+                                <select
+                                  class="qb-vselect"
+                                  data-qb-vselect
+                                  data-qb-option-position="{{ option.position }}"
+                                  aria-label="{{ option.name | escape }}"
+                                >
+                                  {%- for value in option.values -%}
+                                    {%- assign value_available = false -%}
+                                    {%- for v in item_product.variants -%}
+                                      {%- if v.available and v.options[opt_i] == value -%}
+                                        {%- assign value_available = true -%}
+                                        {%- break -%}
+                                      {%- endif -%}
+                                    {%- endfor -%}
+                                    {%- unless theme.hideUnavailableVariants and value_available == false -%}
+                                      <option
+                                        value="{{ value | escape }}"
+                                        {% if value == bi_sel_value %}selected{% endif %}
+                                        {% unless value_available %}disabled{% endunless %}
+                                      >{{ value }}{% unless value_available %} (sold out){% endunless %}</option>
+                                    {%- endunless -%}
+                                  {%- endfor -%}
+                                </select>
+                              {%- endif -%}
+                            </div>
+                          </div>
+                        {%- endfor -%}
+                      </div>
+                    {%- endif -%}
                   </div>
                 {%- endif -%}
               {%- endfor -%}

@@ -236,6 +236,55 @@
     return null;
   }
 
+  // Variant list for one "complete the bundle" item card, scoped to that card
+  // (each bundle item card carries its own [data-qb-bi-variants] JSON).
+  function biVariantsFor(card) {
+    var el = card.querySelector("[data-qb-bi-variants]");
+    if (!el) return [];
+    try {
+      return JSON.parse(el.textContent) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Resolve the variant chosen for a bundle item card by matching its
+  // selected option values. Unlike variantIdForUnit there's no "unit" concept
+  // — a bundle item is a single line — and the query is scoped to the card
+  // itself, so it never picks up the main product's own pickers even though
+  // both reuse the same [data-qb-option-position]/[data-qb-swatch-group]
+  // markup.
+  function bundleItemVariantId(card, variants) {
+    if (!variants.length) return null;
+    var selected = [];
+    var holders = card.querySelectorAll("[data-qb-option-position]");
+    Array.prototype.forEach.call(holders, function (h) {
+      var pos = parseInt(h.getAttribute("data-qb-option-position"), 10);
+      if (!pos) return;
+      var val = null;
+      if (h.tagName === "SELECT") {
+        val = h.value;
+      } else {
+        var sel = h.querySelector(".qb-swatch--selected");
+        val = sel ? sel.getAttribute("data-qb-value") : null;
+      }
+      selected[pos - 1] = val;
+    });
+    for (var i = 0; i < variants.length; i++) {
+      var v = variants[i];
+      if (!v.options || v.options.length !== selected.length) continue;
+      var match = true;
+      for (var j = 0; j < selected.length; j++) {
+        if (selected[j] != null && v.options[j] !== selected[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) return v.id;
+    }
+    return null;
+  }
+
   // Color/button variant swatches (the dropdown picker type is a native
   // <select> and needs no JS). Each [data-qb-swatch-group] is single-select:
   // clicking a swatch selects it within its group, then runs `onChange`.
@@ -407,8 +456,33 @@
     }
 
     // "Complete the bundle" items on the selected tier only (unlike gifts,
-    // these aren't granted "at/above" — a bundle is a specific break).
+    // these aren't granted "at/above" — a bundle is a specific break). Reads
+    // each item's chosen variant from its own card when it has a picker
+    // (data-qb-bundle-item, rendered inside the tier's bundle panel), falling
+    // back to the tier's pre-baked default-variant string for older markup.
     function bundleItemsFor(selectedLabel) {
+      var wrap = selectedLabel.closest(".qb-tier-wrap");
+      var panel = wrap && wrap.querySelector("[data-qb-tier-variants]");
+      var cards = panel
+        ? panel.querySelectorAll("[data-qb-bundle-item]")
+        : [];
+
+      if (cards.length) {
+        var picked = [];
+        Array.prototype.forEach.call(cards, function (card) {
+          var defaultId = card.getAttribute("data-qb-bi-default-variant");
+          var qty = parseInt(card.getAttribute("data-qb-bi-qty"), 10) || 1;
+          var variants = biVariantsFor(card);
+          var id =
+            (variants.length && bundleItemVariantId(card, variants)) ||
+            defaultId;
+          if (!id) return;
+          picked.push({ id: Number(id), quantity: qty });
+        });
+        if (picked.length) return picked;
+      }
+
+      // Fallback: tiers whose bundle panel wasn't found in the DOM.
       var items = [];
       (selectedLabel.getAttribute("data-qb-bundle-items") || "")
         .split(",")
