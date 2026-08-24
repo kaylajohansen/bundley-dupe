@@ -70,7 +70,7 @@ export async function createOffer(shop: string, input: OfferInput) {
       theme: JSON.stringify(normalizeTheme(input.theme)),
       tiers: { create: tierCreateData(input) },
     },
-    include: { tiers: true },
+    include: { tiers: { orderBy: { position: "asc" } } },
   });
 }
 
@@ -94,7 +94,7 @@ export async function updateOffer(shop: string, id: string, input: OfferInput) {
       theme: JSON.stringify(normalizeTheme(input.theme)),
       tiers: { create: tierCreateData(input) },
     },
-    include: { tiers: true },
+    include: { tiers: { orderBy: { position: "asc" } } },
   });
 }
 

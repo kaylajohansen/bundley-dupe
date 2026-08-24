@@ -751,9 +751,9 @@ export function toMetafield(input: OfferInput): OfferMetafield {
     headerText: input.headerText ?? null,
     basePrice: input.basePrice,
     theme: normalizeTheme(input.theme),
+    // Keep the merchant's own ordering (drag-to-reorder in the dashboard) —
+    // the storefront and preview render tiers in this exact array order.
     tiers: input.tiers
-      .slice()
-      .sort((a, b) => a.quantity - b.quantity)
       .map((tier) => ({
         quantity: tier.quantity,
         getQuantity: tier.getQuantity ?? null,

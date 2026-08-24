@@ -647,6 +647,35 @@ export default function OfferEditor() {
     );
   };
 
+  // Reorders a break — the array order IS the storefront display order (the
+  // metafield and preview both render tiers in this exact order, no re-sort).
+  // Used by both drag-and-drop and the up/down buttons.
+  const moveTier = (from: number, to: number) => {
+    if (to < 0 || to >= tiers.length || from === to) return;
+    setTiers((current) => {
+      const next = current.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    // Each collapsed/open state needs to follow its tier to the new position,
+    // not stay pinned to the old index.
+    setCollapsedTiers((current) => {
+      const collapsedSet = new Set(current);
+      const order = tiers.map((_, i) => i);
+      const [movedId] = order.splice(from, 1);
+      order.splice(to, 0, movedId);
+      return order
+        .map((originalIndex, newIndex) =>
+          collapsedSet.has(originalIndex) ? newIndex : -1,
+        )
+        .filter((i) => i >= 0);
+    });
+  };
+
+  // Drag-and-drop reordering: index of the tier currently being dragged.
+  const [dragTierIndex, setDragTierIndex] = useState<number | null>(null);
+
   const save = () => {
     const formData = new FormData();
     formData.set("intent", "save");
@@ -1173,18 +1202,77 @@ export default function OfferEditor() {
                       borderColor="border"
                       borderWidth="025"
                       borderRadius="200"
+                      background={
+                        dragTierIndex === index ? "bg-surface-active" : undefined
+                      }
                     >
                       <BlockStack gap="300">
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="left"
-                          disclosure={isTierOpen(index) ? "up" : "down"}
-                          onClick={() => toggleTier(index)}
+                        <div
+                          draggable
+                          onDragStart={(e) => {
+                            setDragTierIndex(index);
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (dragTierIndex !== null && dragTierIndex !== index) {
+                              moveTier(dragTierIndex, index);
+                            }
+                            setDragTierIndex(null);
+                          }}
+                          onDragEnd={() => setDragTierIndex(null)}
+                          style={{ display: "flex", alignItems: "center", gap: 4 }}
                         >
-                          {summary}
-                          {tier.highlight ? " · Most popular" : ""}
-                        </Button>
+                          <span
+                            aria-hidden="true"
+                            title="Drag to reorder"
+                            style={{
+                              cursor: "grab",
+                              color: "#8a8a8a",
+                              fontSize: 16,
+                              letterSpacing: -2,
+                              lineHeight: 1,
+                              padding: "0 6px",
+                              userSelect: "none",
+                              flex: "0 0 auto",
+                            }}
+                          >
+                            ⠿⠿
+                          </span>
+                          <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+                            <Button
+                              variant="plain"
+                              fullWidth
+                              textAlign="left"
+                              disclosure={isTierOpen(index) ? "up" : "down"}
+                              onClick={() => toggleTier(index)}
+                            >
+                              {summary}
+                              {tier.highlight ? " · Most popular" : ""}
+                            </Button>
+                          </div>
+                          <div style={{ display: "flex", flex: "0 0 auto" }}>
+                            <Button
+                              variant="tertiary"
+                              size="micro"
+                              accessibilityLabel={`Move "${summary}" up`}
+                              onClick={() => moveTier(index, index - 1)}
+                              disabled={index === 0}
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              variant="tertiary"
+                              size="micro"
+                              accessibilityLabel={`Move "${summary}" down`}
+                              onClick={() => moveTier(index, index + 1)}
+                              disabled={index === tiers.length - 1}
+                            >
+                              ↓
+                            </Button>
+                          </div>
+                        </div>
                         <Collapsible
                           open={isTierOpen(index)}
                           id={`tier-collapsible-${index}`}
@@ -2063,11 +2151,10 @@ function WidgetPreview({
   }
   const countdownText = formatCountdown(countdownRemaining);
 
-  // The synced metafield sorts tiers ascending by quantity (stable, so ties —
-  // common between bundle breaks, which often share quantity 1 — keep their
-  // edit order). Mirror that here so the preview's tier order matches what
+  // The metafield preserves the merchant's own tier order (drag-to-reorder in
+  // the dashboard) — mirror that here unchanged so the preview matches what
   // actually renders on the storefront.
-  const previewTiers = tiers.slice().sort((a, b) => a.quantity - b.quantity);
+  const previewTiers = tiers;
 
   // Mirror the storefront selection rule: explicit default tier first, then
   // the highlighted tier, then the first tier.
