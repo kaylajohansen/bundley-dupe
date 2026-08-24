@@ -266,10 +266,16 @@ export async function ensureDiscountActivated(
       };
     }
 
+    // `discountNodes(first: 100)` with no filter returns ALL discounts on the
+    // shop (automatic, code, every app's) — not just ours. Once a shop has
+    // more than 100 discounts total, an already-created "Quantity breaks"
+    // discount can fall outside that first page and this check misses it,
+    // so we'd try to create a second one and collide on the title. Filter by
+    // title so this scales regardless of how many other discounts exist.
     const existingRes = await admin(
       `#graphql
-      query QbDiscounts {
-        discountNodes(first: 100) {
+      query QbDiscounts($query: String!) {
+        discountNodes(first: 10, query: $query) {
           nodes {
             discount {
               __typename
@@ -280,6 +286,7 @@ export async function ensureDiscountActivated(
           }
         }
       }`,
+      { variables: { query: "title:'Quantity breaks'" } },
     );
     const existingJson: any = await existingRes.json();
     const nodes = existingJson?.data?.discountNodes?.nodes ?? [];
@@ -315,6 +322,15 @@ export async function ensureDiscountActivated(
     const errors =
       createJson?.data?.discountAutomaticAppCreate?.userErrors ?? [];
     if (errors.length > 0) {
+      // A title-uniqueness error means a "Quantity breaks" discount already
+      // exists (the query above just didn't find it — a race with another
+      // save, or a title collision from something outside our filter). Either
+      // way the discount is active, so this isn't a real failure.
+      const titleTaken = errors.some((e: any) =>
+        /title.*unique|unique.*title/i.test(e.message ?? ""),
+      );
+      if (titleTaken) return { activated: true };
+
       return {
         activated: false,
         reason: errors.map((e: any) => e.message).join(", "),
