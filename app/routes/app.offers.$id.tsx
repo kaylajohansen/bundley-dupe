@@ -48,6 +48,7 @@ import {
   computeTierPricing,
   computeBxgyPricing,
   computeAnyTierPricing,
+  tierUnitPrice,
   parseTheme,
   normalizeTheme,
   THEME_FIELDS,
@@ -1641,6 +1642,8 @@ export default function OfferEditor() {
                   tiers={tiers}
                   theme={theme}
                   productOptions={productOptions}
+                  productTitle={productTitle || "Product"}
+                  productImageUrl={imageUrl || null}
                 />
               </BlockStack>
             </Card>
@@ -2019,6 +2022,8 @@ function WidgetPreview({
   tiers,
   theme,
   productOptions,
+  productTitle,
+  productImageUrl,
 }: {
   type: OfferType;
   headerText: string;
@@ -2026,6 +2031,8 @@ function WidgetPreview({
   tiers: TierInput[];
   theme: WidgetTheme;
   productOptions: ProductOption[];
+  productTitle: string;
+  productImageUrl: string | null;
 }) {
   const isBxgy = type === "BXGY";
   const firstOption = productOptions[0];
@@ -2135,8 +2142,18 @@ function WidgetPreview({
               ? `Buy ${tier.quantity}, get ${tier.getQuantity ?? 1} free`
               : `${tier.quantity} pcs.`;
           const selected = index === selectedIndex;
-          const accented = selected || tier.highlight;
+          // Only the SELECTED tier gets the accent border — a highlighted
+          // (e.g. "MOST POPULAR") tier keeps its badge but stays neutral
+          // until chosen, matching the storefront's .qb-tier--selected rule.
+          const accented = selected;
           const hasGifts = (tier.gifts ?? []).length > 0;
+          const hasVariantPanel =
+            selected && theme.letChooseVariantPerItem && !isBundleTier;
+          // The bundle panel (like gifts) is always present in the DOM — just
+          // hidden when the tier isn't selected — so its bottom-corner squaring
+          // is unconditional too, matching the storefront's :has(.qb-bundle)
+          // CSS rule that doesn't care about visibility.
+          const squareBottom = hasGifts || isBundleTier || hasVariantPanel;
           return (
             <div
               key={index}
@@ -2146,7 +2163,7 @@ function WidgetPreview({
               style={{
                 position: "relative",
                 border: `2px solid ${accented ? theme.accentColor : theme.borderColor}`,
-                borderRadius: hasGifts
+                borderRadius: squareBottom
                   ? `${theme.tierRadius}px ${theme.tierRadius}px 0 0`
                   : theme.tierRadius,
                 padding: "12px 14px",
@@ -2245,50 +2262,7 @@ function WidgetPreview({
                 )}
               </div>
               </div>
-              {isBundleTier && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {(tier.bundleItems ?? []).map((item, ii) => (
-                    <div
-                      key={ii}
-                      style={{
-                        flex: "1 1 120px",
-                        display: "flex",
-                        gap: 8,
-                        alignItems: "center",
-                        border: `1px solid ${theme.borderColor}`,
-                        borderRadius: 8,
-                        padding: 8,
-                      }}
-                    >
-                      {item.imageUrl && (
-                        <img
-                          src={item.imageUrl}
-                          alt=""
-                          width={36}
-                          height={36}
-                          style={{ borderRadius: 6, objectFit: "cover" }}
-                        />
-                      )}
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "0.86em",
-                            fontWeight: 600,
-                            color: theme.labelColor,
-                          }}
-                        >
-                          {item.title}
-                        </div>
-                        <div style={{ fontSize: "0.8em", color: theme.priceColor }}>
-                          ${item.price.toFixed(2)}
-                          {item.quantity > 1 ? ` × ${item.quantity}` : ""}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {selected && theme.letChooseVariantPerItem && (
+              {!isBundleTier && hasVariantPanel && (
                 <VariantPickerMock
                   theme={theme}
                   pickerType={theme.variantPickerType}
@@ -2304,6 +2278,120 @@ function WidgetPreview({
                 />
               )}
             </div>
+              {isBundleTier && selected && (() => {
+                const mainUnit = tierUnitPrice(basePrice, tier);
+                const mainCard = (title: string, imageUrl: string | null, discounted: number, compareAt: number) => (
+                  <div
+                    style={{
+                      flex: "1 1 0",
+                      minWidth: 90,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                      textAlign: "center" as const,
+                      fontSize: "0.82em",
+                    }}
+                  >
+                    {imageUrl && (
+                      <img
+                        src={imageUrl}
+                        alt=""
+                        width={80}
+                        height={80}
+                        style={{
+                          borderRadius: 8,
+                          objectFit: "cover",
+                          border: `1px solid ${theme.borderColor}`,
+                        }}
+                      />
+                    )}
+                    <span style={{ fontWeight: 600, color: theme.labelColor, lineHeight: 1.3 }}>
+                      {title}
+                    </span>
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {discounted < compareAt && (
+                        <span
+                          style={{
+                            color: theme.compareAtColor,
+                            textDecoration: "line-through",
+                          }}
+                        >
+                          ${compareAt.toFixed(2)}
+                        </span>
+                      )}
+                      <span style={{ color: theme.priceColor }}>
+                        ${discounted.toFixed(2)}
+                      </span>
+                    </span>
+                  </div>
+                );
+                return (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: `2px solid ${theme.accentColor}`,
+                      borderTop: "none",
+                      borderRadius: `0 0 ${theme.tierRadius}px ${theme.tierRadius}px`,
+                      padding: "12px 14px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 0", minWidth: 90, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                        {mainCard(
+                          productTitle,
+                          productImageUrl,
+                          mainUnit,
+                          basePrice,
+                        )}
+                        {theme.letChooseVariantPerItem && (
+                          <VariantPickerMock
+                            theme={theme}
+                            pickerType={theme.variantPickerType}
+                            swatchSize={theme.swatchSize}
+                            units={tier.quantity}
+                            optionName={previewOptionName}
+                            values={previewValues}
+                            colors={theme.swatchColors}
+                          />
+                        )}
+                      </div>
+                      {(tier.bundleItems ?? []).map((item, ii) => {
+                        const itemUnit = tierUnitPrice(item.price, tier);
+                        return (
+                          <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span
+                              style={{
+                                fontSize: "1.2em",
+                                fontWeight: 700,
+                                color: theme.subtitleColor,
+                              }}
+                            >
+                              +
+                            </span>
+                            {mainCard(
+                              item.quantity > 1
+                                ? `${item.title} × ${item.quantity}`
+                                : item.title,
+                              item.imageUrl,
+                              itemUnit * item.quantity,
+                              item.price * item.quantity,
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               {hasGifts && (
                 <div
                   style={{
