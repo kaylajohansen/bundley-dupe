@@ -148,6 +148,56 @@ async function ensureMetafieldDefinition(admin: AdminGraphql) {
   );
 }
 
+// The storefront strikes through each gift's regular price. It prefers a live
+// lookup by product handle, falling back to the price stored with the gift — so
+// a gift saved without a handle or with a $0 stored price shows no
+// strikethrough. Fill both in from Shopify at sync time so every gift has a
+// usable fallback.
+async function fillGiftPrices<
+  T extends { variantId: string; price: number; handle: string },
+>(admin: AdminGraphql, gifts: T[]): Promise<T[]> {
+  const missing = Array.from(
+    new Set(
+      gifts
+        .filter((g) => g.variantId && (!(g.price > 0) || !g.handle))
+        .map((g) => g.variantId),
+    ),
+  );
+  if (missing.length === 0) return gifts;
+  try {
+    const res = await admin(
+      `#graphql
+      query QbGiftVariants($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on ProductVariant { id price product { handle } }
+        }
+      }`,
+      { variables: { ids: missing } },
+    );
+    const json: any = await res.json();
+    const byId = new Map<string, { price: number; handle: string }>();
+    for (const node of json?.data?.nodes ?? []) {
+      if (node?.id)
+        byId.set(node.id, {
+          price: Number(node.price) || 0,
+          handle: node.product?.handle ?? "",
+        });
+    }
+    return gifts.map((g) => {
+      const found = byId.get(g.variantId);
+      if (!found) return g;
+      return {
+        ...g,
+        price: g.price > 0 ? g.price : found.price,
+        handle: g.handle || found.handle,
+      };
+    });
+  } catch {
+    // Best effort: a failed lookup must never block saving the offer.
+    return gifts;
+  }
+}
+
 // Mirror an offer to its product metafield. Active offers write the tier JSON;
 // non-active or product-less offers clear it so the widget/discount disappear.
 export async function syncOfferToMetafield(
@@ -188,6 +238,15 @@ export async function syncOfferToMetafield(
     return;
   }
 
+  const filledGifts = await Promise.all(
+    offer.tiers.map((tier) =>
+      fillGiftPrices(
+        admin,
+        sanitizeGifts(tier.gifts ? JSON.parse(tier.gifts) : []),
+      ),
+    ),
+  );
+
   const value = JSON.stringify(
     toMetafield({
       title: offer.title,
@@ -201,7 +260,7 @@ export async function syncOfferToMetafield(
       theme: normalizeTheme(
         offer.theme ? JSON.parse(offer.theme) : null,
       ),
-      tiers: offer.tiers.map((tier) => ({
+      tiers: offer.tiers.map((tier, tierIndex) => ({
         quantity: tier.quantity,
         getQuantity: tier.getQuantity,
         discountType: tier.discountType as OfferInput["tiers"][number]["discountType"],
@@ -210,7 +269,7 @@ export async function syncOfferToMetafield(
         subtitle: tier.subtitle,
         badgeText: tier.badgeText,
         highlight: tier.highlight,
-        gifts: sanitizeGifts(tier.gifts ? JSON.parse(tier.gifts) : []),
+        gifts: filledGifts[tierIndex],
         bundleItems: sanitizeBundleItems(
           tier.bundleItems ? JSON.parse(tier.bundleItems) : [],
         ),

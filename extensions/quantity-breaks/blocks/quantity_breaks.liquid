@@ -93,23 +93,23 @@
     data-qb-show-compare="{% if theme.showCompareAt == false %}0{% else %}1{% endif %}"
     style="
       display: none;
-      --qb-header: {{ theme.headerColor | default: '#1a1a1a' }};
-      --qb-border: {{ theme.borderColor | default: '#e3e3e3' }};
-      --qb-accent: {{ theme.accentColor | default: '#3b5bfd' }};
-      --qb-selected-bg: {{ theme.selectedBgColor | default: '#f5f7ff' }};
-      --qb-badge-bg: {{ theme.badgeBgColor | default: '#e11d48' }};
-      --qb-badge-text: {{ theme.badgeTextColor | default: '#ffffff' }};
-      --qb-label: {{ theme.labelColor | default: '#1a1a1a' }};
-      --qb-subtitle: {{ theme.subtitleColor | default: '#6b7280' }};
-      --qb-price: {{ theme.priceColor | default: '#1a1a1a' }};
-      --qb-compare: {{ theme.compareAtColor | default: '#9ca3af' }};
-      --qb-gift-bg: {{ theme.giftBgColor | default: '#f0fdf4' }};
-      --qb-gift-label: {{ theme.giftLabelColor | default: '#15803d' }};
-      --qb-gift-price: {{ theme.giftPriceColor | default: '#9ca3af' }};
-      --qb-font-family: {{ theme.fontFamily | default: 'inherit' }};
-      --qb-font-size: {{ theme.fontSize | default: 14 }}px;
-      --qb-tier-radius: {{ theme.tierRadius | default: 12 }}px;
-      --qb-swatch-size: {{ swatch_size }}px;
+      --qb-header: {{ theme.headerColor | default: '#1a1a1a' | escape }};
+      --qb-border: {{ theme.borderColor | default: '#e3e3e3' | escape }};
+      --qb-accent: {{ theme.accentColor | default: '#3b5bfd' | escape }};
+      --qb-selected-bg: {{ theme.selectedBgColor | default: '#f5f7ff' | escape }};
+      --qb-badge-bg: {{ theme.badgeBgColor | default: '#e11d48' | escape }};
+      --qb-badge-text: {{ theme.badgeTextColor | default: '#ffffff' | escape }};
+      --qb-label: {{ theme.labelColor | default: '#1a1a1a' | escape }};
+      --qb-subtitle: {{ theme.subtitleColor | default: '#6b7280' | escape }};
+      --qb-price: {{ theme.priceColor | default: '#1a1a1a' | escape }};
+      --qb-compare: {{ theme.compareAtColor | default: '#9ca3af' | escape }};
+      --qb-gift-bg: {{ theme.giftBgColor | default: '#f0fdf4' | escape }};
+      --qb-gift-label: {{ theme.giftLabelColor | default: '#15803d' | escape }};
+      --qb-gift-price: {{ theme.giftPriceColor | default: '#9ca3af' | escape }};
+      --qb-font-family: {{ theme.fontFamily | default: 'inherit' | escape }};
+      --qb-font-size: {{ theme.fontSize | default: 14 | escape }}px;
+      --qb-tier-radius: {{ theme.tierRadius | default: 12 | escape }}px;
+      --qb-swatch-size: {{ swatch_size | escape }}px;
     "
     {{ block.shopify_attributes }}
   >
@@ -125,7 +125,7 @@
     {%- endif -%}
 
     {%- if config.headerText != blank -%}
-      <div class="qb-header">{{ config.headerText }}</div>
+      <div class="qb-header">{{ config.headerText | escape }}</div>
     {%- endif -%}
 
     {%- if theme.countdownEnabled -%}
@@ -136,17 +136,17 @@
       <div
         class="qb-countdown"
         data-qb-countdown
-        data-qb-mode="{{ theme.countdownMode | default: 'FIXED' }}"
-        data-qb-minutes="{{ theme.countdownMinutes | default: 15 }}"
-        data-qb-end="{{ theme.countdownEndDate }}"
+        data-qb-mode="{{ theme.countdownMode | default: 'FIXED' | escape }}"
+        data-qb-minutes="{{ theme.countdownMinutes | default: 15 | escape }}"
+        data-qb-end="{{ theme.countdownEndDate | escape }}"
         data-qb-title="{{ theme.countdownTitle | escape }}"
         style="
-          background: {{ theme.countdownBgColor | default: '#fde8ef' }};
-          color: {{ theme.countdownTextColor | default: '#1a1a1a' }};
-          text-align: {{ theme.countdownAlign | default: 'center' }};
-          font-size: {{ theme.countdownFontSize | default: 13 }}px;
-          border-radius: {{ theme.countdownRadius | default: 8 }}px;
-          padding: {{ theme.countdownPadding | default: 8 }}px 12px;
+          background: {{ theme.countdownBgColor | default: '#fde8ef' | escape }};
+          color: {{ theme.countdownTextColor | default: '#1a1a1a' | escape }};
+          text-align: {{ theme.countdownAlign | default: 'center' | escape }};
+          font-size: {{ theme.countdownFontSize | default: 13 | escape }}px;
+          border-radius: {{ theme.countdownRadius | default: 8 | escape }}px;
+          padding: {{ theme.countdownPadding | default: 8 | escape }}px 12px;
           {% if theme.countdownBold %}font-weight: 700;{% endif %}
           {% if theme.countdownItalic %}font-style: italic;{% endif %}
         "
@@ -244,7 +244,7 @@
           data-qb-bundle-items="{% for item in tier.bundleItems %}{% assign qb_bi_product = all_products[item.handle] %}{% if qb_bi_product %}{{ qb_bi_product.selected_or_first_available_variant.id }}:{{ item.quantity | default: 1 }}{% unless forloop.last %},{% endunless %}{% endif %}{% endfor %}"
         >
           {%- if tier.badgeText != blank -%}
-            <span class="qb-badge">{{ tier.badgeText }}</span>
+            <span class="qb-badge">{{ tier.badgeText | escape }}</span>
           {%- endif -%}
 
           <input
@@ -260,7 +260,7 @@
             <span class="qb-tier__text">
               <span class="qb-tier__label">
                 {%- if tier.label != blank -%}
-                  {{ tier.label }}
+                  {{ tier.label | escape }}
                 {%- elsif is_bxgy -%}
                   {%- if tier.discountType == 'PERCENT' and tier.discountValue == 100 -%}
                     Buy {{ qty }}, get {{ get_qty }} free
@@ -276,7 +276,7 @@
                 {% if tier.subtitle == blank %}data-qb-savings{% endif %}
               >
                 {%- if tier.subtitle != blank -%}
-                  {{ tier.subtitle }}
+                  {{ tier.subtitle | escape }}
                 {%- elsif save_pct > 0 -%}
                   You save {{ save_pct }}%
                 {%- endif -%}
@@ -553,7 +553,7 @@
                     loading="lazy"
                   >
                 {%- endif -%}
-                <span class="qb-gift__label">+ FREE {% if gift_qty > 1 %}{{ gift_qty }}× {% endif %}{{ gift.title }}</span>
+                <span class="qb-gift__label">+ FREE {% if gift_qty > 1 %}{{ gift_qty }}× {% endif %}{{ gift.title | escape }}</span>
                 {%- comment -%}
                   Use live variant price from all_products when a handle is stored;
                   fall back to the metafield's stored price for older offers.
