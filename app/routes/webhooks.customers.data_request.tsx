@@ -15,12 +15,12 @@ import { authenticate } from "../shopify.server";
  * it to the merchant out-of-band.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, topic, payload } = await authenticate.webhook(request);
+  const { shop, topic } = await authenticate.webhook(request);
 
-  const customerId = (payload as { customer?: { id?: number | string } })
-    ?.customer?.id;
+  // Deliberately not logging the customer id: logs are retained and would
+  // otherwise become a store of customer identifiers we say we don't hold.
   console.log(
-    `Received ${topic} for ${shop} (customer ${customerId}); no customer data stored — nothing to return.`,
+    `Received ${topic} for ${shop}; no customer data stored — nothing to return.`,
   );
 
   return new Response();
