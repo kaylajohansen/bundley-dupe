@@ -262,17 +262,6 @@ export const THEME_FIELDS: { key: keyof ThemeColors; label: string }[] = [
   { key: "giftPriceColor", label: "Gift price" },
 ];
 
-// Theme values end up inside inline style="" attributes on the storefront, so
-// they must never carry quotes/angle brackets/semicolons. Accept only plain CSS
-// colors (hex, named, rgb/hsl functions); anything else falls back to default.
-const SAFE_CSS_COLOR =
-  /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,30}|(?:rgb|hsl)a?\([0-9.,%\s/]{3,40}\))$/;
-export function safeCssColor(value: unknown, fallback: string): string {
-  return typeof value === "string" && SAFE_CSS_COLOR.test(value.trim())
-    ? value.trim()
-    : fallback;
-}
-
 // Merge a possibly-partial/untrusted theme over the defaults so every key is
 // always present. Accepts the JSON-parsed value from the DB or metafield.
 export function normalizeTheme(partial?: Partial<WidgetTheme> | null): WidgetTheme {
@@ -280,14 +269,9 @@ export function normalizeTheme(partial?: Partial<WidgetTheme> | null): WidgetThe
   if (partial) {
     for (const { key } of THEME_FIELDS) {
       const value = partial[key];
-      if (typeof value === "string" && value.trim())
-        result[key] = safeCssColor(value, DEFAULT_THEME[key]);
+      if (typeof value === "string" && value.trim()) result[key] = value;
     }
-    // Only the curated stacks — the value is written into a style attribute.
-    if (
-      typeof partial.fontFamily === "string" &&
-      FONT_OPTIONS.some((f) => f.value === partial.fontFamily)
-    )
+    if (typeof partial.fontFamily === "string" && partial.fontFamily.trim())
       result.fontFamily = partial.fontFamily;
     if (typeof partial.fontSize === "number" && partial.fontSize > 0)
       result.fontSize = partial.fontSize;
@@ -334,8 +318,7 @@ export function normalizeTheme(partial?: Partial<WidgetTheme> | null): WidgetThe
     if (partial.swatchColors && typeof partial.swatchColors === "object") {
       const colors: Record<string, string> = {};
       for (const [k, v] of Object.entries(partial.swatchColors)) {
-        if (typeof v === "string" && SAFE_CSS_COLOR.test(v.trim()))
-          colors[k] = v.trim();
+        if (typeof v === "string" && v.trim()) colors[k] = v;
       }
       result.swatchColors = colors;
     }
@@ -377,14 +360,10 @@ export function normalizeTheme(partial?: Partial<WidgetTheme> | null): WidgetThe
       result.countdownEndDate = partial.countdownEndDate;
     if (typeof partial.countdownTitle === "string")
       result.countdownTitle = partial.countdownTitle;
-    result.countdownBgColor = safeCssColor(
-      partial.countdownBgColor,
-      DEFAULT_THEME.countdownBgColor,
-    );
-    result.countdownTextColor = safeCssColor(
-      partial.countdownTextColor,
-      DEFAULT_THEME.countdownTextColor,
-    );
+    if (typeof partial.countdownBgColor === "string" && partial.countdownBgColor.trim())
+      result.countdownBgColor = partial.countdownBgColor;
+    if (typeof partial.countdownTextColor === "string" && partial.countdownTextColor.trim())
+      result.countdownTextColor = partial.countdownTextColor;
   }
   return result;
 }
