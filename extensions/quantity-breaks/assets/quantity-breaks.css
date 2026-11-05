@@ -469,3 +469,78 @@
   color: var(--qb-gift-label, #15803d);
   font-weight: 700;
 }
+
+/* Optional add-ons: checkbox rows (shipping protection, mystery box, optional
+   gifts) attached under the selected tier like the other joined panels. */
+.qb-addons {
+  order: 3;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 14px;
+  background: var(--qb-selected-bg, #f5f7ff);
+  border: 2px solid var(--qb-accent, #3b5bfd);
+  border-top: none;
+  border-radius: 0 0 var(--qb-tier-radius, 12px) var(--qb-tier-radius, 12px);
+}
+
+.qb-addons[hidden] {
+  display: none;
+}
+
+.qb-addon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  cursor: pointer;
+  font-size: 0.86em;
+}
+
+.qb-addon + .qb-addon {
+  border-top: 1px solid var(--qb-border, #e3e3e3);
+}
+
+.qb-addon__check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--qb-accent, #3b5bfd);
+  cursor: pointer;
+}
+
+.qb-addon__img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.qb-addon__label {
+  font-weight: 600;
+  color: var(--qb-label, #1a1a1a);
+}
+
+.qb-addon__price {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--qb-price, #1a1a1a);
+}
+
+.qb-addon__compare {
+  font-weight: 400;
+  color: var(--qb-compare, #9ca3af);
+  text-decoration: line-through;
+}
+
+/* Square off the seams above the add-ons panel — only while it's showing. */
+.qb-tier-wrap:has(.qb-addons:not([hidden])) .qb-tier,
+.qb-tier-wrap:has(.qb-addons:not([hidden])) .qb-bundle,
+.qb-tier-wrap:has(.qb-addons:not([hidden])) .qb-tier__variants,
+.qb-tier-wrap:has(.qb-addons:not([hidden])) .qb-gifts {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}

@@ -240,7 +240,7 @@
           data-qb-get="{{ get_qty }}"
           data-qb-discount-type="{{ tier.discountType }}"
           data-qb-discount-value="{{ tier.discountValue }}"
-          data-qb-gifts="{% for gift in tier.gifts %}{% assign gq = gift.quantity | default: 1 %}{% if gift.perUnit %}{% assign gq = gq | times: add_qty %}{% endif %}{{ gift.variantId | split: '/' | last }}:{{ gq }}{% unless forloop.last %},{% endunless %}{% endfor %}"
+          data-qb-gifts="{% for gift in tier.gifts %}{% unless gift.optional %}{% assign gq = gift.quantity | default: 1 %}{% if gift.perUnit %}{% assign gq = gq | times: add_qty %}{% endif %}{{ gift.variantId | split: '/' | last }}:{{ gq }},{% endunless %}{% endfor %}"
           data-qb-bundle-items="{% for item in tier.bundleItems %}{% assign qb_bi_product = all_products[item.handle] %}{% if qb_bi_product %}{{ qb_bi_product.selected_or_first_available_variant.id }}:{{ item.quantity | default: 1 }}{% unless forloop.last %},{% endunless %}{% endif %}{% endfor %}"
         >
           {%- if tier.badgeText != blank -%}
@@ -535,9 +535,19 @@
             </div>
           </div>
         {%- endif -%}
-        {%- if tier.gifts and tier.gifts.size > 0 -%}
+        {%- assign qb_auto_gifts = 0 -%}
+        {%- assign qb_addons = 0 -%}
+        {%- for gift in tier.gifts -%}
+          {%- if gift.optional -%}
+            {%- assign qb_addons = qb_addons | plus: 1 -%}
+          {%- else -%}
+            {%- assign qb_auto_gifts = qb_auto_gifts | plus: 1 -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if qb_auto_gifts > 0 -%}
           <div class="qb-gifts">
             {%- for gift in tier.gifts -%}
+              {%- if gift.optional -%}{%- continue -%}{%- endif -%}
               {%- assign gift_qty = gift.quantity | default: 1 -%}
               {%- if gift.perUnit -%}
                 {%- assign gift_qty = gift_qty | times: add_qty -%}
@@ -574,6 +584,61 @@
                 {%- endif -%}
                 <span class="qb-gift__free"><span class="money" data-price="0">{{ 0 | money }}</span></span>
               </div>
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+        {%- if qb_addons > 0 -%}
+          {%- comment -%}
+            Optional add-ons (shipping protection, mystery box, optional free
+            gifts): checkbox rows shown for the selected tier. The widget script
+            adds the ticked ones to the cart; a discount % is applied by the
+            discount function, not here.
+          {%- endcomment -%}
+          <div class="qb-addons" data-qb-addons {% unless is_selected %}hidden{% endunless %}>
+            {%- for gift in tier.gifts -%}
+              {%- unless gift.optional -%}{%- continue -%}{%- endunless -%}
+              {%- assign ao_qty = gift.quantity | default: 1 -%}
+              {%- if gift.perUnit -%}{%- assign ao_qty = ao_qty | times: add_qty -%}{%- endif -%}
+              {%- assign ao_variant_id = gift.variantId | split: '/' | last -%}
+              {%- assign ao_unit_cents = 0 -%}
+              {%- if gift.handle != blank -%}
+                {%- assign ao_product = all_products[gift.handle] -%}
+                {%- if ao_product -%}
+                  {%- assign ao_unit_cents = ao_product.selected_or_first_available_variant.price -%}
+                  {%- for v in ao_product.variants -%}
+                    {%- assign ao_v_id = v.id | append: '' -%}
+                    {%- if ao_v_id == ao_variant_id -%}
+                      {%- assign ao_unit_cents = v.price -%}
+                      {%- break -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                {%- endif -%}
+              {%- endif -%}
+              {%- if ao_unit_cents == 0 and gift.price > 0 -%}
+                {%- assign ao_unit_cents = gift.price | times: 100 | round -%}
+              {%- endif -%}
+              {%- assign ao_full_cents = ao_unit_cents | times: ao_qty -%}
+              {%- assign ao_now_cents = ao_full_cents -%}
+              {%- assign ao_pct = gift.discountPercent | default: 0 -%}
+              {%- if ao_pct > 0 -%}
+                {%- assign ao_factor = 100 | minus: ao_pct -%}
+                {%- assign ao_now_cents = ao_full_cents | times: ao_factor | divided_by: 100 -%}
+              {%- endif -%}
+              <label class="qb-addon" data-qb-addon data-qb-addon-variant="{{ ao_variant_id }}" data-qb-addon-qty="{{ ao_qty }}">
+                <input type="checkbox" class="qb-addon__check" {% if gift.checkedByDefault %}checked{% endif %}>
+                {%- if gift.imageUrl != blank -%}
+                  <img class="qb-addon__img" src="{{ gift.imageUrl }}" alt="" width="36" height="36" loading="lazy">
+                {%- endif -%}
+                <span class="qb-addon__label">Add {% if ao_qty > 1 %}{{ ao_qty }}× {% endif %}{{ gift.title | escape }}</span>
+                {%- if ao_full_cents > 0 -%}
+                  <span class="qb-addon__price">
+                    {%- if ao_now_cents < ao_full_cents -%}
+                      <span class="qb-addon__compare"><span class="money" data-price="{{ ao_full_cents }}">{{ ao_full_cents | money }}</span></span>
+                    {%- endif -%}
+                    <span class="money" data-price="{{ ao_now_cents }}">{{ ao_now_cents | money }}</span>
+                  </span>
+                {%- endif -%}
+              </label>
             {%- endfor -%}
           </div>
         {%- endif -%}

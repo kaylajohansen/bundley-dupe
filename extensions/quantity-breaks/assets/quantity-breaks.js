@@ -498,6 +498,23 @@
       return items;
     }
 
+    // Optional add-ons the shopper has ticked on the selected tier (shipping
+    // protection, mystery box, optional gifts…). Each row carries its variant
+    // id and final quantity; unticked rows add nothing.
+    function addOnItems(selectedLabel) {
+      var wrap = selectedLabel.closest(".qb-tier-wrap");
+      var rows = wrap ? wrap.querySelectorAll("[data-qb-addon]") : [];
+      var items = [];
+      Array.prototype.forEach.call(rows, function (row) {
+        var box = row.querySelector(".qb-addon__check");
+        if (!box || !box.checked) return;
+        var id = row.getAttribute("data-qb-addon-variant");
+        var qty = parseInt(row.getAttribute("data-qb-addon-qty"), 10) || 1;
+        if (id) items.push({ id: Number(id), quantity: qty });
+      });
+      return items;
+    }
+
     // The line items to add for the current selection (main product + gifts).
     //  • Per-item pickers on  → one line per item, using each item's chosen
     //    variant (identical variants are merged into one line with a count).
@@ -539,7 +556,10 @@
         items = [{ id: Number(variantId), quantity: qty }];
       }
 
-      return items.concat(bundleItemsFor(label)).concat(giftItems(label));
+      return items
+        .concat(bundleItemsFor(label))
+        .concat(giftItems(label))
+        .concat(addOnItems(label));
     }
 
     function select(tier) {
@@ -555,6 +575,8 @@
           wrap.classList.toggle("qb-tier-wrap--selected", isTarget);
           var panel = wrap.querySelector("[data-qb-tier-variants]");
           if (panel) panel.hidden = !isTarget;
+          var addons = wrap.querySelector("[data-qb-addons]");
+          if (addons) addons.hidden = !isTarget;
         }
       });
     }

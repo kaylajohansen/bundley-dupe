@@ -1,0 +1,101 @@
+{
+  "payload": {
+    "export": "run",
+    "target": "purchase.product-discount.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "id": "gid://shopify/CartLine/1",
+            "quantity": 2,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "35.00"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/1",
+              "product": {
+                "id": "gid://shopify/Product/1",
+                "metafield": {
+                  "value": "{\"title\":\"Tee\",\"basePrice\":35,\"tiers\":[{\"quantity\":2,\"discountType\":\"PERCENT\",\"discountValue\":15,\"gifts\":[{\"productId\":\"gid://shopify/Product/9\",\"variantId\":\"gid://shopify/ProductVariant/99\",\"title\":\"Shipping protection\",\"price\":8,\"quantity\":1,\"imageUrl\":null,\"optional\":true,\"discountPercent\":0},{\"productId\":\"gid://shopify/Product/8\",\"variantId\":\"gid://shopify/ProductVariant/88\",\"title\":\"Mystery box\",\"price\":22,\"quantity\":1,\"imageUrl\":null,\"optional\":true,\"discountPercent\":100}]}]}"
+                }
+              }
+            }
+          },
+          {
+            "id": "gid://shopify/CartLine/2",
+            "quantity": 1,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "8.00"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/99",
+              "product": {
+                "id": "gid://shopify/Product/9",
+                "metafield": null
+              }
+            }
+          },
+          {
+            "id": "gid://shopify/CartLine/3",
+            "quantity": 1,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "22.00"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/88",
+              "product": {
+                "id": "gid://shopify/Product/8",
+                "metafield": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "discountApplicationStrategy": "ALL",
+      "discounts": [
+        {
+          "message": "Buy 2, save on Tee",
+          "targets": [
+            {
+              "cartLine": {
+                "id": "gid://shopify/CartLine/1"
+              }
+            }
+          ],
+          "value": {
+            "percentage": {
+              "value": "15"
+            }
+          }
+        },
+        {
+          "message": "Add-on discount",
+          "targets": [
+            {
+              "cartLine": {
+                "id": "gid://shopify/CartLine/3",
+                "quantity": 1
+              }
+            }
+          ],
+          "value": {
+            "percentage": {
+              "value": "100"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -413,6 +413,13 @@ export type Gift = {
   // N × quantity free (scales without a cap). When false it's a flat count.
   perUnit: boolean;
   imageUrl: string | null;
+  // Optional add-on: instead of being given automatically, the shopper ticks a
+  // checkbox to add it (e.g. shipping protection, a mystery box, or an
+  // optional free gift). `discountPercent` is taken off its regular price when
+  // added (100 = free, 0 = full price); `checkedByDefault` pre-ticks it.
+  optional?: boolean;
+  checkedByDefault?: boolean;
+  discountPercent?: number;
 };
 
 // One product inside a "Complete the bundle" break. The storefront reads the
@@ -760,6 +767,14 @@ export function sanitizeGifts(gifts: unknown): Gift[] {
           : 1,
       perUnit: g.perUnit === true,
       imageUrl: g.imageUrl ? String(g.imageUrl) : null,
+      optional: g.optional === true,
+      checkedByDefault: g.optional === true && g.checkedByDefault === true,
+      discountPercent:
+        g.optional === true &&
+        typeof g.discountPercent === "number" &&
+        g.discountPercent > 0
+          ? Math.min(100, g.discountPercent)
+          : 0,
     }))
     .filter((g) => g.variantId);
 }

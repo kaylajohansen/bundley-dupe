@@ -1478,7 +1478,8 @@ export default function OfferEditor() {
                                 />
                               )}
                               <Text as="span" variant="bodyMd">
-                                + FREE {gift.title}
+                                {gift.optional ? "Optional: " : "+ FREE "}
+                                {gift.title}
                               </Text>
                             </InlineStack>
                             <InlineStack gap="200" blockAlign="center">
@@ -1522,6 +1523,54 @@ export default function OfferEditor() {
                                   updateGift(index, gi, { perUnit: c })
                                 }
                               />
+                              <Checkbox
+                                label="Optional (shopper ticks it)"
+                                checked={gift.optional === true}
+                                onChange={(c) =>
+                                  updateGift(index, gi, {
+                                    optional: c,
+                                    ...(c
+                                      ? {}
+                                      : {
+                                          checkedByDefault: false,
+                                          discountPercent: 0,
+                                        }),
+                                  })
+                                }
+                              />
+                              {gift.optional && (
+                                <>
+                                  <Checkbox
+                                    label="Pre-ticked"
+                                    checked={gift.checkedByDefault === true}
+                                    onChange={(c) =>
+                                      updateGift(index, gi, {
+                                        checkedByDefault: c,
+                                      })
+                                    }
+                                  />
+                                  <Box width="110px">
+                                    <TextField
+                                      label="Discount %"
+                                      labelHidden
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      autoComplete="off"
+                                      suffix="% off"
+                                      value={String(gift.discountPercent ?? 0)}
+                                      onChange={(v) =>
+                                        updateGift(index, gi, {
+                                          discountPercent: Math.min(
+                                            100,
+                                            Math.max(0, Number(v) || 0),
+                                          ),
+                                        })
+                                      }
+                                    />
+                                  </Box>
+                                </>
+                              )}
                               <Button
                                 variant="plain"
                                 tone="critical"
@@ -1534,8 +1583,13 @@ export default function OfferEditor() {
                         ))}
                         <div>
                           <Button onClick={() => addGift(index)}>
-                            Add free gift
+                            Add free gift or add-on
                           </Button>
+                          <Text as="p" tone="subdued" variant="bodySm">
+                            Mark an item “Optional” to show it as a checkbox
+                            the shopper can tick — e.g. shipping protection
+                            (0% off), or an optional free gift (100% off).
+                          </Text>
                         </div>
                       </BlockStack>
                           </BlockStack>
@@ -2233,7 +2287,9 @@ function WidgetPreview({
           // (e.g. "MOST POPULAR") tier keeps its badge but stays neutral
           // until chosen, matching the storefront's .qb-tier--selected rule.
           const accented = selected;
-          const hasGifts = (tier.gifts ?? []).length > 0;
+          const autoGifts = (tier.gifts ?? []).filter((g) => !g.optional);
+          const addOns = (tier.gifts ?? []).filter((g) => g.optional);
+          const hasGifts = autoGifts.length > 0;
           const hasVariantPanel =
             selected && theme.letChooseVariantPerItem && !isBundleTier;
           // The bundle panel (like gifts) is always present in the DOM — just
@@ -2492,7 +2548,7 @@ function WidgetPreview({
                     padding: "10px 12px",
                   }}
                 >
-                  {(tier.gifts ?? []).map((gift, gi) => {
+                  {autoGifts.map((gift, gi) => {
                     const units = isBxgy
                       ? tier.quantity + (tier.getQuantity ?? 0)
                       : tier.quantity;
@@ -2555,6 +2611,98 @@ function WidgetPreview({
                         </span>
                       </span>
                     </div>
+                    );
+                  })}
+                </div>
+              )}
+              {selected && addOns.length > 0 && (
+                <div
+                  style={{
+                    background: theme.selectedBgColor,
+                    border: `2px solid ${theme.accentColor}`,
+                    borderTop: "none",
+                    borderRadius: `0 0 ${theme.tierRadius}px ${theme.tierRadius}px`,
+                    padding: "6px 12px",
+                  }}
+                >
+                  {addOns.map((addOn, ai) => {
+                    const units = isBxgy
+                      ? tier.quantity + (tier.getQuantity ?? 0)
+                      : tier.quantity;
+                    const qty =
+                      (addOn.quantity ?? 1) * (addOn.perUnit ? units : 1);
+                    const full = addOn.price * qty;
+                    const off = addOn.discountPercent ?? 0;
+                    const now = full * (1 - off / 100);
+                    return (
+                      <div
+                        key={ai}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "8px 0",
+                          fontSize: "0.86em",
+                          borderTop:
+                            ai > 0 ? `1px solid ${theme.borderColor}` : "none",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: 3,
+                            border: `2px solid ${theme.accentColor}`,
+                            background: addOn.checkedByDefault
+                              ? theme.accentColor
+                              : "#fff",
+                            color: "#fff",
+                            fontSize: 11,
+                            lineHeight: "12px",
+                            textAlign: "center",
+                            flex: "0 0 auto",
+                          }}
+                        >
+                          {addOn.checkedByDefault ? "✓" : ""}
+                        </span>
+                        {addOn.imageUrl && (
+                          <img
+                            src={addOn.imageUrl}
+                            alt=""
+                            width={28}
+                            height={28}
+                            style={{ borderRadius: 5, objectFit: "cover" }}
+                          />
+                        )}
+                        <span
+                          style={{ fontWeight: 600, color: theme.labelColor }}
+                        >
+                          Add {qty > 1 ? `${qty}× ` : ""}
+                          {addOn.title}
+                        </span>
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            display: "flex",
+                            gap: 6,
+                            fontWeight: 700,
+                            color: theme.priceColor,
+                          }}
+                        >
+                          {off > 0 && full > 0 && (
+                            <span
+                              style={{
+                                color: theme.compareAtColor,
+                                fontWeight: 400,
+                                textDecoration: "line-through",
+                              }}
+                            >
+                              ${full.toFixed(2)}
+                            </span>
+                          )}
+                          ${now.toFixed(2)}
+                        </span>
+                      </div>
                     );
                   })}
                 </div>

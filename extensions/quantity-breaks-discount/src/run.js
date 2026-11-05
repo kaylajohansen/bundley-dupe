@@ -275,13 +275,17 @@ export function run(input) {
    * }>}
    */
   const groups = new Map();
-  /** @type {{ lineId: string, variantId: string }[]} */
+  /** @type {{ lineId: string, variantId: string, quantity: number }[]} */
   const allLines = [];
 
   for (const line of input.cart.lines) {
     const merchandise = line.merchandise;
     if (merchandise.__typename !== "ProductVariant") continue;
-    allLines.push({ lineId: line.id, variantId: merchandise.id });
+    allLines.push({
+      lineId: line.id,
+      variantId: merchandise.id,
+      quantity: line.quantity,
+    });
 
     const raw = merchandise.product?.metafield?.value;
     const productId = merchandise.product?.id;
@@ -309,6 +313,13 @@ export function run(input) {
   const discounts = [];
   /** @type {Map<string, number>} variant id -> granted free quantity */
   const freeGiftQty = new Map();
+  /**
+   * Optional add-ons the shopper chose to add: variant id -> best discount %
+   * and the quantity it applies to. Only discounted once it's actually in the
+   * cart and its tier's threshold is met.
+   * @type {Map<string, { percent: number, qty: number }>}
+   */
+  const addOnDiscounts = new Map();
   for (const [productId, { config, total, lines }] of groups) {
     if (!lines.length) continue;
 
@@ -349,6 +360,24 @@ export function run(input) {
         if (!gift || !gift.variantId) continue;
         const per = typeof gift.quantity === "number" ? gift.quantity : 1;
         const qty = gift.perUnit === true ? per * total : per;
+        if (gift.optional === true) {
+          // Optional add-on: never free by default — only the configured
+          // discount, and only on units the shopper actually added.
+          const percent = Math.min(
+            100,
+            typeof gift.discountPercent === "number" ? gift.discountPercent : 0,
+          );
+          if (percent > 0) {
+            const prev = addOnDiscounts.get(gift.variantId);
+            if (!prev || percent > prev.percent || qty > prev.qty) {
+              addOnDiscounts.set(gift.variantId, {
+                percent: Math.max(percent, prev ? prev.percent : 0),
+                qty: Math.max(qty, prev ? prev.qty : 0),
+              });
+            }
+          }
+          continue;
+        }
         freeGiftQty.set(
           gift.variantId,
           Math.max(freeGiftQty.get(gift.variantId) || 0, qty),
@@ -366,6 +395,23 @@ export function run(input) {
           message: "Free gift",
           targets: [{ cartLine: { id: lineId, quantity: qty } }],
           value: { percentage: { value: "100" } },
+        });
+      }
+    }
+  }
+
+  // Discount the optional add-ons that are in the cart.
+  if (addOnDiscounts.size > 0) {
+    for (const { lineId, variantId, quantity } of allLines) {
+      const addOn = addOnDiscounts.get(variantId);
+      if (addOn) {
+        discounts.push({
+          message: "Add-on discount",
+          // Never target more units than the line actually holds.
+          targets: [
+            { cartLine: { id: lineId, quantity: Math.min(addOn.qty, quantity) } },
+          ],
+          value: { percentage: { value: String(addOn.percent) } },
         });
       }
     }
