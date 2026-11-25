@@ -1880,6 +1880,7 @@ export default function OfferEditor() {
                   { label: "Default dropdown", value: "dropdown" },
                   { label: "Color swatch", value: "color" },
                   { label: "Button swatch", value: "button" },
+                  { label: "Image swatch", value: "image" },
                 ]}
                 value={draftPickerType}
                 onChange={(v) => setDraftPickerType(v as VariantPickerType)}
@@ -2072,6 +2073,27 @@ function VariantPickerMock({
                           : "inset 0 0 0 1px rgba(0,0,0,0.15)",
                     }}
                   />
+                ) : pickerType === "image" ? (
+                  <span
+                    key={v}
+                    title={v}
+                    style={{
+                      width: swatchSize,
+                      height: swatchSize,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 8,
+                      fontSize: "0.6em",
+                      color: theme.labelColor,
+                      background: "#f1f1f1",
+                      border: `1.5px solid ${
+                        i === 0 ? theme.accentColor : theme.borderColor
+                      }`,
+                    }}
+                  >
+                    img
+                  </span>
                 ) : (
                   <span
                     key={v}

@@ -589,7 +589,106 @@
 
     initSwatches(widget);
     initCountdown(widget);
+    initBundleInfo(widget);
     bindAddGuard(getItems);
+  }
+
+  // Product-details popup for bundle item cards. Opens on hover (mouse) or
+  // click/tap/Enter; the popup stays open while the pointer is over the card
+  // or the popup, and offers a link to the product's page.
+  function initBundleInfo(widget) {
+    var triggers = widget.querySelectorAll("[data-qb-info]");
+    if (!triggers.length) return;
+    var pop = null;
+    var current = null;
+    var hideTimer = null;
+    var showTimer = null;
+
+    function close() {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+      if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
+      pop = null;
+      current = null;
+    }
+    function scheduleClose() {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(close, 200);
+    }
+    function position(card) {
+      var r = card.getBoundingClientRect();
+      var pw = pop.offsetWidth;
+      var ph = pop.offsetHeight;
+      if (window.innerWidth < 600) {
+        pop.style.left = Math.max(8, (window.innerWidth - pw) / 2) + "px";
+        pop.style.top = Math.max(8, (window.innerHeight - ph) / 2) + "px";
+        return;
+      }
+      var left = r.left + r.width / 2 - pw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+      var top = r.top - ph - 8;
+      if (top < 8) top = Math.min(r.bottom + 8, window.innerHeight - ph - 8);
+      pop.style.left = left + "px";
+      pop.style.top = Math.max(8, top) + "px";
+    }
+    function open(card) {
+      if (current === card && pop) {
+        clearTimeout(hideTimer);
+        return;
+      }
+      close();
+      var details = card.querySelector("[data-qb-bi-details]");
+      if (!details) return;
+      current = card;
+      pop = document.createElement("div");
+      pop.className = "qb-pop";
+      pop.setAttribute("role", "dialog");
+      pop.setAttribute("aria-label", "Product details");
+      pop.innerHTML =
+        '<button type="button" class="qb-pop__close" aria-label="Close">&times;</button>' +
+        details.innerHTML;
+      document.body.appendChild(pop);
+      position(card);
+      pop.addEventListener("mouseenter", function () {
+        clearTimeout(hideTimer);
+      });
+      pop.addEventListener("mouseleave", scheduleClose);
+      pop.querySelector(".qb-pop__close").addEventListener("click", close);
+    }
+
+    Array.prototype.forEach.call(triggers, function (t) {
+      var card = t.closest("[data-qb-bundle-item]");
+      if (!card) return;
+      t.addEventListener("mouseenter", function () {
+        if (!window.matchMedia("(hover: hover)").matches) return;
+        clearTimeout(hideTimer);
+        clearTimeout(showTimer);
+        showTimer = setTimeout(function () {
+          open(card);
+        }, 150);
+      });
+      t.addEventListener("mouseleave", scheduleClose);
+      t.addEventListener("click", function (e) {
+        e.stopPropagation();
+        open(card);
+      });
+      t.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          open(card);
+        }
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") close();
+    });
+    document.addEventListener("click", function (e) {
+      if (pop && !pop.contains(e.target) && !e.target.closest("[data-qb-info]"))
+        close();
+    });
+    window.addEventListener("scroll", close, { passive: true });
   }
 
   function initAll() {

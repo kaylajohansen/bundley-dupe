@@ -119,7 +119,8 @@ export type CountdownAlignment = (typeof COUNTDOWN_ALIGNMENTS)[number];
 //   dropdown – native <select> (default)
 //   color    – color circle swatches (swatch background = the option value)
 //   button   – pill/button swatches showing the value text
-export const VARIANT_PICKER_TYPES = ["dropdown", "color", "button"] as const;
+//   image    – thumbnail swatches using each option value's variant image
+export const VARIANT_PICKER_TYPES = ["dropdown", "color", "button", "image"] as const;
 export type VariantPickerType = (typeof VARIANT_PICKER_TYPES)[number];
 
 // The full offer config blob (stored as JSON on the offer + mirrored to the

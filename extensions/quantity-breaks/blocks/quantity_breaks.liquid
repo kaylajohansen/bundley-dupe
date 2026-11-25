@@ -337,7 +337,7 @@
                           {%- assign unit_n = forloop.index -%}
                           <div class="qb-vrow">
                             {%- if qty > 1 -%}<span class="qb-vrow__num">#{{ unit_n }}</span>{%- endif -%}
-                            {%- if picker_type == 'color' or picker_type == 'button' -%}
+                            {%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}
                               <div
                                 class="qb-swatch-group"
                                 data-qb-swatch-group
@@ -358,6 +358,8 @@
                                     {%- assign is_sel = false -%}
                                     {%- if value == sel_value -%}{%- assign is_sel = true -%}{%- endif -%}
                                     {%- assign swatch_bg = theme.swatchColors[value] | default: value | downcase | remove: ' ' -%}
+{%- assign swatch_img = nil -%}
+{%- if picker_type == 'image' -%}{%- for v in product.variants -%}{%- if v.options[opt_i] == value and v.featured_image -%}{%- assign swatch_img = v.featured_image -%}{%- break -%}{%- endif -%}{%- endfor -%}{%- endif -%}
                                     <button
                                       type="button"
                                       class="qb-swatch qb-swatch--{{ picker_type }}{% if is_sel %} qb-swatch--selected{% endif %}{% unless value_available %} qb-swatch--soldout{% endunless %}"
@@ -367,7 +369,7 @@
                                       aria-label="{{ option.name | escape }}: {{ value | escape }}"
                                       aria-pressed="{% if is_sel %}true{% else %}false{% endif %}"
                                       title="{{ value | escape }}"
-                                    >{% if picker_type == 'button' %}{{ value }}{% endif %}</button>
+                                    >{% if picker_type == 'button' %}{{ value }}{% elsif picker_type == 'image' %}{% if swatch_img %}<img src="{{ swatch_img | image_url: width: 120 }}" alt="{{ value | escape }}" loading="lazy" width="60" height="60">{% else %}<span class="qb-swatch__txt">{{ value }}</span>{% endif %}{% endif %}</button>
                                   {%- endunless -%}
                                 {%- endfor -%}
                               </div>
@@ -433,7 +435,8 @@
                   >
                     {%- if item_product.featured_media -%}
                       <img
-                        class="qb-bundle__card-img"
+                        class="qb-bundle__card-img qb-info-trigger"
+                        data-qb-info
                         src="{{ item_product.featured_media | image_url: width: 160 }}"
                         alt=""
                         width="80"
@@ -441,7 +444,17 @@
                         loading="lazy"
                       >
                     {%- endif -%}
-                    <span class="qb-bundle__card-title">{{ item_product.title }}{% if item_qty > 1 %} × {{ item_qty }}{% endif %}</span>
+                    <span class="qb-bundle__card-title qb-info-trigger" data-qb-info role="button" tabindex="0" aria-haspopup="dialog">{{ item_product.title }}{% if item_qty > 1 %} × {{ item_qty }}{% endif %}</span>
+                    <div hidden data-qb-bi-details>
+                      {%- if item_product.featured_media -%}
+                        <img class="qb-pop__img" src="{{ item_product.featured_media | image_url: width: 400 }}" alt="{{ item_product.title | escape }}" width="252" height="180" loading="lazy">
+                      {%- endif -%}
+                      <div class="qb-pop__title">{{ item_product.title | escape }}</div>
+                      <div class="qb-pop__price"><span class="money" data-price="{{ item_variant.price }}">{{ item_variant.price | money }}</span>{% if item_product.compare_at_price > item_variant.price %} <s class="money" data-price="{{ item_product.compare_at_price }}">{{ item_product.compare_at_price | money }}</s>{% endif %}</div>
+                      {%- assign item_desc = item_product.description | strip_html | strip | truncate: 320 -%}
+                      {%- if item_desc != blank -%}<p class="qb-pop__desc">{{ item_desc | escape }}</p>{%- endif -%}
+                      <a class="qb-pop__link" href="{{ item_product.url }}">View full product details &rarr;</a>
+                    </div>
                     <span class="qb-bundle__price">
                       {%- if item_discounted_cents < item_variant.price -%}
                         <span class="qb-bundle__compare"><span class="money" data-price="{{ item_variant.price }}">{{ item_variant.price | money }}</span></span>
@@ -465,7 +478,7 @@
                           <div class="qb-voption" data-qb-option-position="{{ option.position }}">
                             <span class="qb-voption__label">{{ option.name }}</span>
                             <div class="qb-vrow">
-                              {%- if picker_type == 'color' or picker_type == 'button' -%}
+                              {%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}
                                 <div
                                   class="qb-swatch-group"
                                   data-qb-swatch-group
@@ -485,6 +498,8 @@
                                       {%- assign bi_is_sel = false -%}
                                       {%- if value == bi_sel_value -%}{%- assign bi_is_sel = true -%}{%- endif -%}
                                       {%- assign swatch_bg = theme.swatchColors[value] | default: value | downcase | remove: ' ' -%}
+{%- assign swatch_img = nil -%}
+{%- if picker_type == 'image' -%}{%- for v in item_product.variants -%}{%- if v.options[opt_i] == value and v.featured_image -%}{%- assign swatch_img = v.featured_image -%}{%- break -%}{%- endif -%}{%- endfor -%}{%- endif -%}
                                       <button
                                         type="button"
                                         class="qb-swatch qb-swatch--{{ picker_type }}{% if bi_is_sel %} qb-swatch--selected{% endif %}{% unless value_available %} qb-swatch--soldout{% endunless %}"
@@ -494,7 +509,7 @@
                                         aria-label="{{ option.name | escape }}: {{ value | escape }}"
                                         aria-pressed="{% if bi_is_sel %}true{% else %}false{% endif %}"
                                         title="{{ value | escape }}"
-                                      >{% if picker_type == 'button' %}{{ value }}{% endif %}</button>
+                                      >{% if picker_type == 'button' %}{{ value }}{% elsif picker_type == 'image' %}{% if swatch_img %}<img src="{{ swatch_img | image_url: width: 120 }}" alt="{{ value | escape }}" loading="lazy" width="60" height="60">{% else %}<span class="qb-swatch__txt">{{ value }}</span>{% endif %}{% endif %}</button>
                                     {%- endunless -%}
                                   {%- endfor -%}
                                 </div>
@@ -664,7 +679,7 @@
                   {%- assign unit_n = forloop.index -%}
                   <div class="qb-vrow">
                     <span class="qb-vrow__num">#{{ unit_n }}</span>
-                    {%- if picker_type == 'color' or picker_type == 'button' -%}
+                    {%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}
                       <div
                         class="qb-swatch-group"
                         data-qb-swatch-group
@@ -685,6 +700,8 @@
                             {%- assign is_sel = false -%}
                             {%- if value == sel_value -%}{%- assign is_sel = true -%}{%- endif -%}
                             {%- assign swatch_bg = theme.swatchColors[value] | default: value | downcase | remove: ' ' -%}
+{%- assign swatch_img = nil -%}
+{%- if picker_type == 'image' -%}{%- for v in product.variants -%}{%- if v.options[opt_i] == value and v.featured_image -%}{%- assign swatch_img = v.featured_image -%}{%- break -%}{%- endif -%}{%- endfor -%}{%- endif -%}
                             <button
                               type="button"
                               class="qb-swatch qb-swatch--{{ picker_type }}{% if is_sel %} qb-swatch--selected{% endif %}{% unless value_available %} qb-swatch--soldout{% endunless %}"
@@ -694,7 +711,7 @@
                               aria-label="{{ option.name | escape }}: {{ value | escape }}"
                               aria-pressed="{% if is_sel %}true{% else %}false{% endif %}"
                               title="{{ value | escape }}"
-                            >{% if picker_type == 'button' %}{{ value }}{% endif %}</button>
+                            >{% if picker_type == 'button' %}{{ value }}{% elsif picker_type == 'image' %}{% if swatch_img %}<img src="{{ swatch_img | image_url: width: 120 }}" alt="{{ value | escape }}" loading="lazy" width="60" height="60">{% else %}<span class="qb-swatch__txt">{{ value }}</span>{% endif %}{% endif %}</button>
                           {%- endunless -%}
                         {%- endfor -%}
                       </div>
