@@ -395,7 +395,7 @@ export default function OfferEditor() {
   const openSwatchModal = () => {
     setDraftPickerType(theme.variantPickerType);
     setDraftSwatchSize(theme.swatchSize);
-    setDraftOption(productOptions[0]?.name ?? "");
+    setDraftOption(theme.swatchOption || (productOptions[0]?.name ?? ""));
     setDraftSwatchColors({ ...theme.swatchColors });
     setSwatchModalOpen(true);
   };
@@ -404,6 +404,7 @@ export default function OfferEditor() {
       ...current,
       variantPickerType: draftPickerType,
       swatchSize: draftSwatchSize,
+      swatchOption: productOptions.length > 0 ? draftOption : current.swatchOption,
       swatchColors: draftSwatchColors,
     }));
     setSwatchModalOpen(false);
@@ -1871,7 +1872,7 @@ export default function OfferEditor() {
                 helpText={
                   productOptions.length === 0
                     ? "Pick a product to load its real options."
-                    : "The picker style applies to all options."
+                    : "Swatches show for this option only. Other options (size, fit…) stay as dropdowns."
                 }
               />
               <Select
@@ -2001,6 +2002,7 @@ function VariantPickerMock({
   colors?: Record<string, string>;
 }) {
   const vals = values.length > 0 ? values : SAMPLE_VALUES;
+  if (theme.swatchOption && optionName !== theme.swatchOption) pickerType = "dropdown";
   const swatchColor = (v: string) => colors?.[v] || colorFor(v);
   return (
     <div

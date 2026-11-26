@@ -337,7 +337,8 @@
                           {%- assign unit_n = forloop.index -%}
                           <div class="qb-vrow">
                             {%- if qty > 1 -%}<span class="qb-vrow__num">#{{ unit_n }}</span>{%- endif -%}
-                            {%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}
+                            {%- assign opt_swatch = false -%}{%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}{%- if theme.swatchOption == blank or theme.swatchOption == option.name -%}{%- assign opt_swatch = true -%}{%- endif -%}{%- endif -%}
+                            {%- if opt_swatch -%}
                               <div
                                 class="qb-swatch-group"
                                 data-qb-swatch-group
@@ -478,7 +479,8 @@
                           <div class="qb-voption" data-qb-option-position="{{ option.position }}">
                             <span class="qb-voption__label">{{ option.name }}</span>
                             <div class="qb-vrow">
-                              {%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}
+                              {%- assign opt_swatch = false -%}{%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}{%- if theme.swatchOption == blank or theme.swatchOption == option.name -%}{%- assign opt_swatch = true -%}{%- endif -%}{%- endif -%}
+                              {%- if opt_swatch -%}
                                 <div
                                   class="qb-swatch-group"
                                   data-qb-swatch-group
@@ -679,7 +681,8 @@
                   {%- assign unit_n = forloop.index -%}
                   <div class="qb-vrow">
                     <span class="qb-vrow__num">#{{ unit_n }}</span>
-                    {%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}
+                    {%- assign opt_swatch = false -%}{%- if picker_type == 'color' or picker_type == 'button' or picker_type == 'image' -%}{%- if theme.swatchOption == blank or theme.swatchOption == option.name -%}{%- assign opt_swatch = true -%}{%- endif -%}{%- endif -%}
+                    {%- if opt_swatch -%}
                       <div
                         class="qb-swatch-group"
                         data-qb-swatch-group
