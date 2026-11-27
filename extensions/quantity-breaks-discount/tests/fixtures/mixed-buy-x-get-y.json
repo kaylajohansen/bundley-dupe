@@ -1,0 +1,52 @@
+{
+  "payload": {
+    "export": "run",
+    "target": "purchase.product-discount.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "id": "gid://shopify/CartLine/1",
+            "quantity": 3,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "40.00"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/1",
+              "product": {
+                "id": "gid://shopify/Product/1",
+                "metafield": {
+                  "value": "{\"type\": \"QUANTITY_BREAKS\", \"title\": \"Tee\", \"basePrice\": 40, \"tiers\": [{\"quantity\": 2, \"getQuantity\": null, \"discountType\": \"PERCENT\", \"discountValue\": 10}, {\"quantity\": 2, \"getQuantity\": 1, \"discountType\": \"PERCENT\", \"discountValue\": 100, \"badgeText\": \"Buy 2 get 1\"}]}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "discountApplicationStrategy": "ALL",
+      "discounts": [
+        {
+          "message": "Buy 2 get 1",
+          "targets": [
+            {
+              "cartLine": {
+                "id": "gid://shopify/CartLine/1",
+                "quantity": 1
+              }
+            }
+          ],
+          "value": {
+            "percentage": {
+              "value": "100"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

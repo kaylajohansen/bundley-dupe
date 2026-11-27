@@ -206,6 +206,40 @@ function bundleDiscount(config, anchorProductId, groups) {
 }
 
 /**
+ * A normal quantity-break offer where some tiers also carry a "get Y" reward.
+ * Each tier needs `quantity + getQuantity` units in the cart; the best tier the
+ * total meets wins (exact total preferred). A tier with a get quantity discounts
+ * only its cheapest Y units; a plain tier discounts every unit as before.
+ *
+ * @param {any} config
+ * @param {number} totalQty
+ * @param {{ id: string, quantity: number, price: number }[]} lines
+ * @param {Target[]} targets
+ */
+function mixedTierDiscount(config, totalQty, lines, targets) {
+  const tiers = (config.tiers || [])
+    .filter(
+      (t) =>
+        t &&
+        typeof t.quantity === "number" &&
+        !(Array.isArray(t.bundleItems) && t.bundleItems.length > 0),
+    )
+    .map((t) => ({
+      tier: t,
+      need: t.quantity + (typeof t.getQuantity === "number" ? t.getQuantity : 0),
+    }))
+    .sort((a, b) => b.need - a.need);
+  const pick =
+    tiers.find((t) => t.need === totalQty) ||
+    tiers.find((t) => totalQty >= t.need);
+  if (!pick) return null;
+  const single = { ...config, tiers: [pick.tier] };
+  return typeof pick.tier.getQuantity === "number" && pick.tier.getQuantity > 0
+    ? bxgyDiscount(single, totalQty, lines)
+    : quantityBreakDiscount(single, totalQty, targets);
+}
+
+/**
  * Build the quantity-break discount for a product, from its combined quantity
  * across all of its cart lines, applied to every one of those lines.
  *
@@ -335,10 +369,15 @@ export function run(input) {
     if (isBundleFollower) continue;
 
     const targets = lines.map((l) => ({ cartLine: { id: l.id } }));
+    const hasGetTiers = (config.tiers || []).some(
+      (t) => t && typeof t.getQuantity === "number" && t.getQuantity > 0,
+    );
     const discount =
       config.type === "BXGY"
         ? bxgyDiscount(config, total, lines)
-        : quantityBreakDiscount(config, total, targets);
+        : hasGetTiers
+          ? mixedTierDiscount(config, total, lines, targets)
+          : quantityBreakDiscount(config, total, targets);
     if (discount) discounts.push(discount);
 
     const bundleDisc = bundleDiscount(config, productId, groups);

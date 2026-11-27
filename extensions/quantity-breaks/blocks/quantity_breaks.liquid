@@ -157,6 +157,8 @@
       {%- for tier in config.tiers -%}
         {%- assign qty = tier.quantity -%}
         {%- assign get_qty = tier.getQuantity | default: 0 -%}
+        {%- assign tier_bxgy = is_bxgy -%}
+        {%- if get_qty > 0 -%}{%- assign tier_bxgy = true -%}{%- endif -%}
 
         {%- comment -%}
           Compute discounted unit price in cents. discountValue for PERCENT is
@@ -206,7 +208,7 @@
             {%- assign total_cents = compare_cents | minus: flat_off_cents -%}
           {%- endif -%}
           {%- if total_cents < 0 -%}{%- assign total_cents = 0 -%}{%- endif -%}
-        {%- elsif is_bxgy -%}
+        {%- elsif tier_bxgy -%}
           {%- assign add_qty = qty | plus: get_qty -%}
           {%- assign bxgy_x_cents = base_cents | times: qty -%}
           {%- assign bxgy_y_cents = unit_cents | times: get_qty -%}
@@ -261,7 +263,7 @@
               <span class="qb-tier__label">
                 {%- if tier.label != blank -%}
                   {{ tier.label | escape }}
-                {%- elsif is_bxgy -%}
+                {%- elsif tier_bxgy -%}
                   {%- if tier.discountType == 'PERCENT' and tier.discountValue == 100 -%}
                     Buy {{ qty }}, get {{ get_qty }} free
                   {%- else -%}

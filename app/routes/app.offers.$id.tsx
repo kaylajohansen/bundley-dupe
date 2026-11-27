@@ -1189,11 +1189,15 @@ export default function OfferEditor() {
 
                 {tiers.map((tier, index) => {
                   const isBundleTier = (tier.bundleItems ?? []).length > 0;
+                  // A normal break can also carry a "get Y" reward: any tier
+                  // with a get quantity prices/discounts like Buy X, get Y.
+                  const tierBxgy =
+                    !isBundleTier && (isBxgy || (tier.getQuantity ?? 0) > 0);
                   const summary =
                     tier.label ||
                     (isBundleTier
                       ? "Complete the bundle"
-                      : isBxgy
+                      : tierBxgy
                         ? `Buy ${tier.quantity}, get ${tier.getQuantity ?? 1} free`
                         : `${tier.quantity} pcs.`);
                   return (
@@ -1283,7 +1287,7 @@ export default function OfferEditor() {
                         <FormLayout.Group condensed>
                           <TextField
                             label={
-                              isBxgy
+                              tierBxgy
                                 ? "Buy quantity"
                                 : isBundleTier
                                   ? "Main product qty"
@@ -1299,7 +1303,7 @@ export default function OfferEditor() {
                               })
                             }
                           />
-                          {isBxgy && (
+                          {tierBxgy && (
                             <TextField
                               label="Get quantity"
                               type="number"
@@ -1315,7 +1319,7 @@ export default function OfferEditor() {
                           )}
                           <Select
                             label={
-                              isBxgy
+                              tierBxgy
                                 ? "Get-item discount"
                                 : isBundleTier
                                   ? "Bundle discount"
@@ -1345,6 +1349,18 @@ export default function OfferEditor() {
                             }
                           />
                         </FormLayout.Group>
+                        {!isBxgy && !isBundleTier && (
+                          <Checkbox
+                            label="Buy X, get Y: extra items on this break get the discount"
+                            helpText="The discount applies only to the Y extra items, not the X you buy. Shoppers get X + Y items in total."
+                            checked={(tier.getQuantity ?? 0) > 0}
+                            onChange={(on) =>
+                              updateTier(index, {
+                                getQuantity: on ? 1 : null,
+                              })
+                            }
+                          />
+                        )}
                         <FormLayout.Group condensed>
                           <TextField
                             label="Label"
@@ -2298,12 +2314,14 @@ function WidgetPreview({
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {previewTiers.map((tier, index) => {
           const isBundleTier = (tier.bundleItems ?? []).length > 0;
-          const pricing = isBxgy
+          const tierBxgy =
+            !isBundleTier && (isBxgy || (tier.getQuantity ?? 0) > 0);
+          const pricing = tierBxgy
             ? computeBxgyPricing(basePrice, tier)
             : computeAnyTierPricing(basePrice, tier);
           const labelFallback = isBundleTier
             ? "Complete the bundle"
-            : isBxgy
+            : tierBxgy
               ? `Buy ${tier.quantity}, get ${tier.getQuantity ?? 1} free`
               : `${tier.quantity} pcs.`;
           const selected = index === selectedIndex;

@@ -687,9 +687,11 @@ export function validateOffer(input: OfferInput): string[] {
     // quantity, so it's exempt from the quantity-uniqueness requirement.
     const isBundleTier = (tier.bundleItems ?? []).length > 0;
     if (!isBundleTier) {
-      if (seen.has(tier.quantity))
-        errors.push(`Duplicate tier for quantity ${tier.quantity}.`);
-      seen.add(tier.quantity);
+      // Total units (buy + any "get Y") is what the cart is matched on.
+      const total = tier.quantity + Math.max(0, tier.getQuantity ?? 0);
+      if (seen.has(total))
+        errors.push(`Duplicate tier for quantity ${total}.`);
+      seen.add(total);
     }
 
     if (tier.discountType === "PERCENT") {
